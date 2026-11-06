@@ -27,5 +27,5 @@
 <table><tr><th>Protocolo</th><th>Gerado em</th></tr>
 @forelse ($waiting as $d)<tr><td><a href="{{ route('casos.show', $d->case) }}">{{ $d->case->protocol }}</a></td><td>{{ $d->created_at->format('d/m/Y H:i') }}</td></tr>
 @empty<tr><td colspan="2" class="muted">Nenhum.</td></tr>@endforelse</table>
-<p class="muted">Registre o número na página do caso. Prazos internos: violência sexual {{ config('sigiep.sinan.deadline_days.sexual') }} dia(s); demais {{ config('sigiep.sinan.deadline_days.default') }} dias. Confirme com a vigilância epidemiológica.</p></div>
+<p class="muted">Registre o número na página do caso. Prazos internos: violência sexual {{ $municipality->sinan_deadline_sexual_days }} dia(s); demais {{ $municipality->sinan_deadline_default_days }} dias (<a href="{{ route('admin.municipios.prazos', $municipality) }}">alterar</a>). Confirme com a vigilância epidemiológica.</p></div>
 @endsection

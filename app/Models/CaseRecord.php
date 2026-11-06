@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 #[Table('cases')]
@@ -56,6 +57,24 @@ class CaseRecord extends Model
 
             return $prefix.str_pad((string) $seq, 5, '0', STR_PAD_LEFT);
         });
+    }
+
+    /**
+     * Cria o caso com protocolo sequencial. Se outro cadastro simultâneo pegar o mesmo
+     * número (a coluna é única), tenta de novo com o próximo em vez de falhar com erro 500.
+     * A tentativa roda em savepoint para não abortar uma transação externa (PostgreSQL).
+     */
+    public static function createWithProtocol(array $attributes, int $tries = 5): static
+    {
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                return DB::transaction(fn () => static::create([...$attributes, 'protocol' => static::nextProtocol()]));
+            } catch (UniqueConstraintViolationException $e) {
+                if ($attempt >= $tries) {
+                    throw $e;
+                }
+            }
+        }
     }
 
     public function municipality(): BelongsTo

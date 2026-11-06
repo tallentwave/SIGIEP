@@ -9,7 +9,7 @@
             <td>{{ $m->users_count }}</td><td>{{ $m->cases_count }}</td><td>{{ $m->flow_steps_count }}</td>
             <td>@foreach ($m->readiness() as $label => $ok)<div><span class="badge {{ $ok ? '' : 'warn' }}">{{ $ok ? '✓' : 'pendente' }}</span> {{ $label }}</div>@endforeach</td>
             <td>@if ($m->accepts_public_reports)<a href="{{ route('denuncia.create', $m->slug) }}">/denuncia/{{ $m->slug }}</a>@else —@endif</td>
-            <td><a href="{{ route('admin.municipios.edit', $m) }}">Editar</a> · <a href="{{ route('admin.municipios.fluxo', $m) }}">Fluxo</a></td></tr>
+            <td><a href="{{ route('admin.municipios.edit', $m) }}">Editar</a> · <a href="{{ route('admin.municipios.fluxo', $m) }}">Fluxo</a> · <a href="{{ route('admin.municipios.prazos', $m) }}">Prazos</a></td></tr>
     @endforeach
 </table></div>
 @endsection

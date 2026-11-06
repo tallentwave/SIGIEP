@@ -17,6 +17,7 @@ vítimas ou testemunhas de violência (Lei 13.431/2017). Laravel 13 · PHP 8.3 �
 | **Estatísticas e PDF** | Indicadores agregados por período/município (tipo, faixa etária, situação, mês, órgão, tempo até 1ª escuta, retorno de encaminhamentos), PDF estatístico e PDF individual do caso |
 | **Alertas** | `php artisan sigiep:alertas` (agendado 07:30): encaminhamentos atrasados, escutas das próximas 24h, casos parados na fila. Só protocolos por e-mail |
 | **Segurança da conta** | Recuperação de senha por e-mail (link de 60 min, uso único, resposta idêntica exista o e-mail ou não, derruba sessões abertas) e **2FA por aplicativo autenticador** (TOTP) com códigos de recuperação. Obrigatório para Administrador, Coordenação, Psicólogo e Assistente Social; opcional para Recepção |
+| **Prazos por município** | Tela *Prazos*: dias para notificar ao SINAN (violência sexual × demais) e dias na fila até alertar a coordenação. Editável pelo administrador e pela coordenação do próprio município |
 | **Auditoria** | Login/falhas, leitura de caso e relato, alterações (só nomes dos campos), exportações, acessos negados, denúncias públicas |
 
 | **Retenção e anonimização** | Prazo de guarda por município (padrão provisório de 10 anos após o encerramento), **guarda legal** que suspende a anonimização, anonimização irreversível automática (opt-in) ou manual, e expurgo da trilha de auditoria antiga. Mantém só o estatístico |
@@ -72,14 +73,23 @@ Usuários demo: `coordenacao@`, `psicologo@`, `social@`, `recepcao@` + `sigiep.t
 
 ## Produção: checklist
 
-- `APP_ENV=production`, `APP_DEBUG=false`, HTTPS, `APP_KEY` com backup, banco MySQL/PostgreSQL.
-- Configurar `MAIL_*` (em dev o e-mail vai para o log) e o cron do agendador: `* * * * * php artisan schedule:run`.
+Rode `php artisan sigiep:verificar` (e `--strict` na esteira de deploy: sai com erro se algo crítico estiver fora do padrão). Ele confere debug, `APP_KEY`, HTTPS, cookie seguro, tempo de sessão, e-mail real, 2FA, banco e proxies.
+
+- `APP_ENV=production`, `APP_DEBUG=false`, HTTPS, `SESSION_SECURE_COOKIE=true`, `APP_KEY` com backup, banco MySQL/PostgreSQL (com backup e disco criptografado).
+- **E-mail real** (`MAIL_*`): com `MAIL_MAILER=log` os links de redefinição de senha e os alertas vão para o arquivo de log.
+- **Atrás de balanceador/proxy:** defina `TRUSTED_PROXIES`; senão a auditoria grava o IP do proxy e o limite de login é compartilhado.
+- Agendador do servidor: `* * * * * php artisan schedule:run`.
 - **Não** rodar o seeder em produção; crie o primeiro administrador via `php artisan tinker`.
 - 2FA: o padrão já é seguro; **não** defina `SIGIEP_2FA_REQUIRED` em produção. Quem perder o celular e os códigos pede ao administrador (Usuários → Editar → Redefinir 2FA).
-- Revisar o fluxo de cada município em *Fluxo municipal* antes de abrir o canal público.
+- Por *Municípios*: código IBGE, unidade notificadora do SINAN, fluxo e prazos. Teste `sigiep:retencao --dry-run` antes de ligar `SIGIEP_RETENTION_AUTO`.
 
-- Em *Municípios*, informe o código IBGE (validado pelo dígito verificador e pela UF) e a unidade notificadora do SINAN. A tela mostra o que falta, e o painel da coordenação avisa enquanto houver pendência.
-- Teste `sigiep:retencao --dry-run` antes de ligar `SIGIEP_RETENTION_AUTO`.
+### O que o sistema já faz por segurança
+
+- Sessão ociosa expira em 30 min; login limitado a 6 tentativas/min por e-mail+IP (um usuário errando a senha não trava os colegas).
+- Todas as respostas saem com `Cache-Control: no-store` (nada fica em cache do navegador) e CSP sem scripts: o sistema não usa JavaScript.
+- CPF criptografado no banco; busca por CPF só exata, via índice cego (HMAC).
+- Protocolo e agenda protegidos contra cadastros simultâneos (retry em colisão; agenda serializada por município).
+- Atualizações de dependências chegam como PR do Dependabot para revisão humana (nada é mesclado sozinho).
 
 ## Pendente / próximos passos
 

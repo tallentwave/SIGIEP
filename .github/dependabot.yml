@@ -10,3 +10,9 @@ updates:
       github-actions:
         patterns:
           - "*"
+  # Atualizações de dependências PHP viram PR para revisão humana; nada é mesclado automaticamente.
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

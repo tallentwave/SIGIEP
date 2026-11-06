@@ -9,9 +9,11 @@ use App\Enums\SessionStatus;
 use App\Models\AuditLog;
 use App\Models\CaseRecord;
 use App\Models\ListeningSession;
+use App\Models\Municipality;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -28,9 +30,13 @@ class SessionController extends Controller
             'room' => ['nullable', 'string', 'max:100'],
         ], [], ['professional_id' => 'profissional', 'scheduled_at' => 'data/hora']);
 
-        $this->assertNoConflict($data, $case);
-
-        $case->sessions()->create([...$data, 'status' => SessionStatus::Agendada]);
+        // Trava o município durante "verificar conflito + gravar" para que dois
+        // agendamentos simultâneos não reservem o mesmo profissional/sala.
+        DB::transaction(function () use ($case, $data) {
+            Municipality::whereKey($case->municipality_id)->lockForUpdate()->first();
+            $this->assertNoConflict($data, $case);
+            $case->sessions()->create([...$data, 'status' => SessionStatus::Agendada]);
+        });
         if ($case->status === CaseStatus::Recebido) {
             $case->update(['status' => CaseStatus::EmEscuta]);
         }
@@ -77,15 +83,17 @@ class SessionController extends Controller
             unset($data['report'], $data['technical_notes'], $data['accompanied_by']);
         }
 
-        if (SessionStatus::from($data['status']) === SessionStatus::Agendada) {
-            $this->assertNoConflict($data, $session->case, $session);
-        }
-
         if ($data['status'] === SessionStatus::Realizada->value && ! $session->performed_at) {
             $data['performed_at'] = now();
         }
 
-        $session->update($data);
+        DB::transaction(function () use ($data, $session) {
+            Municipality::whereKey($session->case->municipality_id)->lockForUpdate()->first();
+            if (SessionStatus::from($data['status']) === SessionStatus::Agendada) {
+                $this->assertNoConflict($data, $session->case, $session);
+            }
+            $session->update($data);
+        });
 
         return redirect()->route('casos.show', $session->case_id)->with('ok', 'Escuta atualizada.');
     }

@@ -65,6 +65,32 @@ class MunicipalityController extends Controller
         ]);
     }
 
+    /** Prazos de notificação e de alerta: admin ou coordenação do próprio município. */
+    public function deadlines(Municipality $municipality)
+    {
+        $this->authorize('manageFlow', $municipality);
+
+        return view('admin.municipios.prazos', ['municipality' => $municipality]);
+    }
+
+    public function updateDeadlines(Request $request, Municipality $municipality)
+    {
+        $this->authorize('manageFlow', $municipality);
+        $d = $request->validate([
+            'sinan_deadline_default_days' => ['required', 'integer', 'between:0,60'],
+            // Violência sexual é de notificação imediata: nunca pode ter prazo maior que o das demais.
+            'sinan_deadline_sexual_days' => ['required', 'integer', 'between:0,60', 'lte:sinan_deadline_default_days'],
+            'queue_alert_days' => ['required', 'integer', 'between:1,60'],
+        ], ['sinan_deadline_sexual_days.lte' => 'O prazo da violência sexual (notificação imediata) não pode ser maior que o das demais.'], [
+            'sinan_deadline_default_days' => 'prazo das demais violências',
+            'sinan_deadline_sexual_days' => 'prazo da violência sexual',
+            'queue_alert_days' => 'dias na fila até o alerta',
+        ]);
+        $municipality->update($d);
+
+        return back()->with('ok', 'Prazos atualizados. Valem para todos os casos, inclusive os já cadastrados.');
+    }
+
     public function storeStep(Request $request, Municipality $municipality)
     {
         $this->authorize('manageFlow', $municipality);

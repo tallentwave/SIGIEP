@@ -69,9 +69,8 @@ class PublicIntakeController extends Controller
                 $child->guardians()->create($g);
             }
 
-            $case = CaseRecord::create([
+            $case = CaseRecord::createWithProtocol([
                 ...$v['case'],
-                'protocol' => CaseRecord::nextProtocol(),
                 'municipality_id' => $municipality->id,
                 'source' => 'publica',
                 'child_id' => $child->id,

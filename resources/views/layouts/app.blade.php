@@ -53,7 +53,7 @@
         @if (auth()->user()->isCoordination())<a href="{{ route('integracoes.index') }}">Integrações</a>@endif
         @can('viewRetention') <a href="{{ route('retencao.index') }}">Retenção</a> @endcan
         @can('viewAudit') <a href="{{ route('auditoria.index') }}">Auditoria</a> @endcan
-        @if (auth()->user()->isCoordination())<a href="{{ route('admin.municipios.fluxo', auth()->user()->municipality_id) }}">Fluxo municipal</a>@endif
+        @if (auth()->user()->isCoordination())<a href="{{ route('admin.municipios.fluxo', auth()->user()->municipality_id) }}">Fluxo municipal</a> <a href="{{ route('admin.municipios.prazos', auth()->user()->municipality_id) }}">Prazos</a>@endif
         @can('admin') <a href="{{ route('admin.usuarios.index') }}">Usuários</a> <a href="{{ route('admin.municipios.index') }}">Municípios</a> @endcan
     </nav>
     <span class="who"><a href="{{ route('2fa.manage') }}" title="Segurança da conta">{{ auth()->user()->name }}</a> · {{ auth()->user()->role->label() }}{{ auth()->user()->municipality ? ' · '.auth()->user()->municipality->name : '' }}</span>

@@ -73,12 +73,11 @@ class CaseController extends Controller
                 $child->guardians()->create($g);
             }
 
-            $case = CaseRecord::create([
+            $case = CaseRecord::createWithProtocol([
                 ...$data['case'],
                 'ficha' => $data['ficha'],
                 'municipality_id' => $user->municipality_id,
                 'source' => 'interna',
-                'protocol' => CaseRecord::nextProtocol(),
                 'child_id' => $child->id,
                 'status' => CaseStatus::Recebido,
                 'created_by' => $request->user()->id,

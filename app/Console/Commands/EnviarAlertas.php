@@ -17,8 +17,8 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
-#[Signature('sigiep:alertas {--dias-fila=3 : Dias sem responsável para alertar}')]
-#[Description('Envia e-mail com encaminhamentos atrasados, escutas das próximas 24h e casos parados na fila')]
+#[Signature('sigiep:alertas')]
+#[Description('Envia e-mail com encaminhamentos atrasados, escutas das próximas 24h, casos parados na fila e SINAN vencido (prazos por município)')]
 class EnviarAlertas extends Command
 {
     public function handle(): int
@@ -37,11 +37,11 @@ class EnviarAlertas extends Command
                 ->whereBetween('scheduled_at', [now(), now()->addDay()])->with('case')->get();
 
             $fila = (clone $cases)->whereNull('responsible_id')->where('status', '!=', CaseStatus::Encerrado)
-                ->whereDate('received_at', '<=', now()->subDays((int) $this->option('dias-fila')))->get();
+                ->whereDate('received_at', '<=', now()->subDays($m->queue_alert_days))->get();
 
             $sinan = (clone $cases)->where('condition', 'vitima')->whereNull('anonymized_at')
                 ->whereDoesntHave('dispatches', fn ($q) => $q->where('system', 'sinan')->whereIn('status', ['concluido', 'dispensado']))
-                ->get()->filter(fn ($c) => SinanExporter::deadline($c)->isPast());
+                ->with('municipality')->get()->filter(fn ($c) => SinanExporter::deadline($c)->isPast());
 
             if ($atrasados->isEmpty() && $sessions->isEmpty() && $fila->isEmpty() && $sinan->isEmpty()) {
                 continue;

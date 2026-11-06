@@ -2,7 +2,7 @@
 @section('title', 'Atendidos')
 @section('content')
 <h1>Atendidos</h1>
-<form class="card row" method="get"><div><label>Nome, nome da mãe ou CPF (mín. 3 letras)</label><input type="text" name="q" value="{{ request('q') }}" autofocus></div><div><button>Buscar</button></div></form>
+<form class="card row" method="get"><div><label>Nome, nome da mãe ou CPF completo (mín. 3 letras)</label><input type="text" name="q" value="{{ request('q') }}" autofocus></div><div><button>Buscar</button></div></form>
 <div class="card">
     @forelse ($children as $c)
         <p><a href="{{ route('atendidos.show', $c) }}">{{ $c->displayName() }}</a> <span class="muted">{{ $c->birth_date?->format('d/m/Y') }} · mãe: {{ $c->mother_name ?? '—' }}</span></p>

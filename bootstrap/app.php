@@ -3,6 +3,7 @@
 use App\Enums\AuditAction;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureTwoFactor;
+use App\Http\Middleware\SecurityHeaders;
 use App\Models\AuditLog;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -18,6 +19,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias(['password.changed' => EnsurePasswordChanged::class, 'two-factor' => EnsureTwoFactor::class]);
+        $middleware->web(append: [SecurityHeaders::class]);
+        // Atrás de proxy/balanceador, o IP real (auditoria e limite de tentativas) depende disto.
+        // TRUSTED_PROXIES="*" ou lista separada por vírgula (IPs/CIDR do balanceador).
+        $proxies = env('TRUSTED_PROXIES');
+        $middleware->trustProxies(at: $proxies === '*' ? '*' : ($proxies ? array_map('trim', explode(',', $proxies)) : null));
         $middleware->redirectGuestsTo('/login');
         $middleware->redirectUsersTo('/');
     })

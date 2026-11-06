@@ -346,12 +346,12 @@ class SinanExporter
         return $case->condition === Condition::Vitima && ! $case->isAnonymized();
     }
 
-    /** Prazo interno (dias) conforme o tipo de violência. */
+    /** Prazo interno de notificação: configurável por município e diferente para violência sexual (notificação imediata). */
     public static function deadline(CaseRecord $case): CarbonInterface
     {
-        $days = config('sigiep.sinan.deadline_days');
-        $d = in_array('sexual', $case->violence_types ?? [], true) ? $days['sexual'] : $days['default'];
+        $m = $case->municipality;
+        $days = in_array('sexual', $case->violence_types ?? [], true) ? $m->sinan_deadline_sexual_days : $m->sinan_deadline_default_days;
 
-        return $case->received_at->copy()->addDays((int) $d);
+        return $case->received_at->copy()->addDays((int) $days);
     }
 }

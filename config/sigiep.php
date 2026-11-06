@@ -28,10 +28,8 @@ return [
     'audit_retention_years' => (int) env('SIGIEP_AUDIT_RETENTION_YEARS', 5),
 
     /*
-    | Prazos internos para notificar ao SINAN (dias após o recebimento do caso).
-    | Violência sexual é de notificação imediata; as demais, semanal. CONFIRME
-    | com a vigilância epidemiológica do município. 'agravo' é o CID-10 do campo
-    | ID_AGRAVO da ficha de violência interpessoal/autoprovocada.
+    | 'agravo' é o CID-10 do campo ID_AGRAVO da ficha de violência interpessoal/autoprovocada.
+    | Os prazos de notificação são configurados por município (tela Prazos).
     */
-    'sinan' => ['deadline_days' => ['sexual' => 1, 'default' => 7], 'agravo' => 'Y09'],
+    'sinan' => ['agravo' => 'Y09'],
 ];

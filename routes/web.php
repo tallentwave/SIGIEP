@@ -27,7 +27,7 @@ Route::get('/denuncia/{slug}/recebida', [PublicIntakeController::class, 'receive
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::get('/esqueci-senha', [PasswordResetController::class, 'request'])->name('password.request');
     Route::post('/esqueci-senha', [PasswordResetController::class, 'email'])->middleware('throttle:3,1')->name('password.email');
     Route::get('/redefinir-senha/{token}', [PasswordResetController::class, 'form'])->name('password.reset');
@@ -87,6 +87,8 @@ Route::middleware(['auth', 'two-factor', 'password.changed'])->group(function ()
         Route::resource('usuarios', UserController::class)->parameters(['usuarios' => 'user'])->except(['show', 'destroy']);
         Route::resource('municipios', MunicipalityController::class)->parameters(['municipios' => 'municipality'])->except(['show', 'destroy']);
         Route::get('municipios/{municipality}/fluxo', [MunicipalityController::class, 'flow'])->name('municipios.fluxo');
+        Route::get('municipios/{municipality}/prazos', [MunicipalityController::class, 'deadlines'])->name('municipios.prazos');
+        Route::put('municipios/{municipality}/prazos', [MunicipalityController::class, 'updateDeadlines'])->name('municipios.prazos.update');
         Route::post('municipios/{municipality}/etapas', [MunicipalityController::class, 'storeStep'])->name('municipios.etapas.store');
         Route::put('municipios/{municipality}/etapas/{step}', [MunicipalityController::class, 'updateStep'])->name('municipios.etapas.update');
         Route::delete('municipios/{municipality}/etapas/{step}', [MunicipalityController::class, 'destroyStep'])->name('municipios.etapas.destroy');

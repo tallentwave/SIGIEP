@@ -11,9 +11,12 @@
     @include('admin.municipios._etapa', ['step' => $step])
     <button>Salvar etapa</button>
 </form>
-<form method="post" action="{{ route('admin.municipios.etapas.destroy', [$municipality, $step]) }}" style="margin:-8px 0 16px" onsubmit="return confirm('Remover esta etapa? Encaminhamentos já gerados são mantidos.')">
-    @csrf @method('DELETE') <button class="ghost">Remover etapa acima</button>
-</form>
+<details style="margin:-8px 0 16px"><summary class="muted" style="cursor:pointer">Remover esta etapa…</summary>
+    <form method="post" action="{{ route('admin.municipios.etapas.destroy', [$municipality, $step]) }}" style="margin-top:6px">
+        @csrf @method('DELETE')
+        <span class="muted">Encaminhamentos já gerados por ela são mantidos.</span> <button class="ghost">Confirmar remoção</button>
+    </form>
+</details>
 @endforeach
 
 <form class="card" method="post" action="{{ route('admin.municipios.etapas.store', $municipality) }}">

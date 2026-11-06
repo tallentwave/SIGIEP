@@ -11,7 +11,7 @@ class Guardian extends Model
 
     protected function casts(): array
     {
-        return ['is_suspected' => 'boolean', 'can_be_contacted' => 'boolean'];
+        return ['is_suspected' => 'boolean', 'can_be_contacted' => 'boolean', 'cpf' => 'encrypted'];
     }
 
     public function child(): BelongsTo

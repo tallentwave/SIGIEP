@@ -19,8 +19,14 @@ class ChildController extends Controller
         if (strlen(trim((string) $request->query('q'))) >= 3) {
             $term = '%'.trim($request->query('q')).'%';
             $children = Child::whereIn('id', CaseRecord::visibleTo($request->user())->select('child_id'))
-                ->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('social_name', 'like', $term)
-                    ->orWhere('mother_name', 'like', $term)->orWhere('cpf', 'like', $term))
+                ->where(function ($q) use ($term, $request) {
+                    $q->where('name', 'like', $term)->orWhere('social_name', 'like', $term)->orWhere('mother_name', 'like', $term);
+                    // CPF é criptografado: só a busca exata (11 dígitos) é possível, via índice cego.
+                    $digits = preg_replace('/\D/', '', (string) $request->query('q'));
+                    if (strlen($digits) === 11) {
+                        $q->orWhere('cpf_hash', Child::cpfHash($digits));
+                    }
+                })
                 ->orderBy('name')->limit(30)->get();
         }
 

@@ -23,12 +23,17 @@ class Ficha
             'outro' => 'Outro'],
         'tipo_sexual' => ['assedio' => 'Assédio sexual', 'estupro' => 'Estupro', 'pornografia_infantil' => 'Pornografia infantil',
             'exploracao_sexual' => 'Exploração sexual', 'atentado_pudor' => 'Atentado violento ao pudor', 'outro' => 'Outro'],
+        // Categorias do campo 61 do SINAN (relação do provável autor com a pessoa atendida).
         'vinculo_autor' => ['pai' => 'Pai', 'mae' => 'Mãe', 'padrasto' => 'Padrasto', 'madrasta' => 'Madrasta',
-            'conjuge_namorado' => 'Cônjuge / namorado(a)', 'irmao' => 'Irmão(ã)', 'outro_familiar' => 'Outro familiar',
-            'amigo_conhecido' => 'Amigo / conhecido', 'cuidador' => 'Cuidador(a)', 'desconhecido' => 'Desconhecido',
-            'professor_instituicao' => 'Profissional de instituição', 'outro' => 'Outro'],
+            'conjuge' => 'Cônjuge', 'ex_conjuge' => 'Ex-cônjuge', 'namorado' => 'Namorado(a)', 'ex_namorado' => 'Ex-namorado(a)',
+            'filho' => 'Filho(a)', 'irmao' => 'Irmão(ã)', 'amigo_conhecido' => 'Amigo / conhecido', 'desconhecido' => 'Desconhecido',
+            'cuidador' => 'Cuidador(a)', 'patrao_chefe' => 'Patrão / chefe', 'professor_instituicao' => 'Pessoa com relação institucional',
+            'policial' => 'Policial / agente da lei', 'proprietario_estabelecimento' => 'Proprietário de estabelecimento',
+            'outro_familiar' => 'Outro familiar', 'outro' => 'Outro'],
         'sexo_autor' => ['masculino' => 'Masculino', 'feminino' => 'Feminino', 'ambos' => 'Ambos', 'ignorado' => 'Ignorado'],
-        'faixa_autor' => ['menor_18' => 'Menor de 18 anos', '18_59' => '18 a 59 anos', '60_mais' => '60 anos ou mais', 'ignorado' => 'Ignorado'],
+        // Campo 64 do SINAN (ciclo de vida do provável autor).
+        'faixa_autor' => ['crianca' => 'Criança', 'adolescente' => 'Adolescente', 'jovem' => 'Jovem', 'adulta' => 'Pessoa adulta',
+            'idosa' => 'Pessoa idosa', 'ignorado' => 'Ignorado'],
         'suspeita_alcool' => ['sim' => 'Sim', 'nao' => 'Não', 'ignorado' => 'Ignorado'],
         'num_envolvidos' => ['um' => 'Um', 'dois_mais' => 'Dois ou mais', 'ignorado' => 'Ignorado'],
         'raca_cor' => ['branca' => 'Branca', 'preta' => 'Preta', 'amarela' => 'Amarela', 'parda' => 'Parda', 'indigena' => 'Indígena', 'ignorado' => 'Ignorado'],
@@ -40,7 +45,7 @@ class Ficha
     public const LABELS = [
         'local_ocorrencia' => 'Local da ocorrência', 'zona' => 'Zona da ocorrência', 'ocorreu_outras_vezes' => 'Ocorreu outras vezes?',
         'meio_agressao' => 'Meio de agressão', 'tipo_sexual' => 'Tipo de violência sexual', 'vinculo_autor' => 'Vínculo do provável autor',
-        'sexo_autor' => 'Sexo do provável autor', 'faixa_autor' => 'Faixa etária do provável autor', 'suspeita_alcool' => 'Suspeita de uso de álcool',
+        'sexo_autor' => 'Sexo do provável autor', 'faixa_autor' => 'Ciclo de vida do provável autor', 'suspeita_alcool' => 'Suspeita de uso de álcool',
         'num_envolvidos' => 'Nº de envolvidos', 'raca_cor' => 'Raça/cor da criança ou adolescente', 'vinculo_notificante' => 'Vínculo do notificante',
     ];
 

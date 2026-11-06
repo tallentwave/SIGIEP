@@ -25,7 +25,7 @@ vítimas ou testemunhas de violência (Lei 13.431/2017). Laravel 13 · PHP 8.3 �
 
 ### O que as integrações fazem — e o que não fazem
 
-- **SINAN não tem API pública de envio.** A notificação é digitada/importada pela vigilância epidemiológica do município. O SIGIEP gera o arquivo mapeado para os campos oficiais; **a vigilância precisa conferir e carregar** (o CSV não é o arquivo de transferência nativo do SINAN NET). Campos sem dado na ficha saem como `9 – Ignorado` e aparecem como aviso. Verifique com a vigilância: o nome do campo `REL_IRMAO` (o dicionário imprime com til) e o agrupamento "cônjuge/namorado(a)" da ficha, que o SINAN separa em quatro categorias.
+- **SINAN não tem API pública de envio.** A notificação é digitada/importada pela vigilância epidemiológica do município. O SIGIEP gera o arquivo mapeado para os campos oficiais; **a vigilância precisa conferir e carregar** (o CSV não é o arquivo de transferência nativo do SINAN NET). Campos sem dado na ficha saem como `9 – Ignorado` e aparecem como aviso. Para reduzir erro de digitação, cada caso também gera uma **ficha numerada em PDF**, na ordem do dicionário (campos 1 a 65), com o código a digitar ao lado de cada valor. As opções da ficha do SIGIEP seguem as categorias do SINAN (relação do provável autor, ciclo de vida do autor). Confirme com a vigilância apenas o nome da coluna `REL_IRMAO` (o dicionário a imprime com til).
 - **CNJ/MNI não está ligado.** O Modelo Nacional de Interoperabilidade é um webservice por tribunal e exige adesão/credenciais (convênio). Sem isso não há como enviar, então o sistema **não finge** uma conexão: valida e registra o processo, gera o documento e controla o nº do ofício/protocolo. Quando um tribunal aderir, a integração entra sobre esses mesmos registros.
 - Nenhum conteúdo gerado é guardado: só o *hash* e o status (o resumo ao Juízo é criptografado).
 
@@ -78,7 +78,7 @@ Usuários demo: `coordenacao@`, `psicologo@`, `social@`, `recepcao@` + `sigiep.t
 - 2FA: o padrão já é seguro; **não** defina `SIGIEP_2FA_REQUIRED` em produção. Quem perder o celular e os códigos pede ao administrador (Usuários → Editar → Redefinir 2FA).
 - Revisar o fluxo de cada município em *Fluxo municipal* antes de abrir o canal público.
 
-- Defina por município o código IBGE e a unidade notificadora do SINAN (*Municípios*), e combine com a vigilância epidemiológica o formato de carga.
+- Em *Municípios*, informe o código IBGE (validado pelo dígito verificador e pela UF) e a unidade notificadora do SINAN. A tela mostra o que falta, e o painel da coordenação avisa enquanto houver pendência.
 - Teste `sigiep:retencao --dry-run` antes de ligar `SIGIEP_RETENTION_AUTO`.
 
 ## Pendente / próximos passos

@@ -71,6 +71,7 @@ Route::middleware(['auth', 'two-factor', 'password.changed'])->group(function ()
 
     Route::get('integracoes', [IntegrationController::class, 'index'])->name('integracoes.index');
     Route::post('integracoes/sinan/arquivo', [IntegrationController::class, 'sinanFile'])->name('integracoes.sinan.file');
+    Route::post('casos/{case}/sinan/ficha', [IntegrationController::class, 'sinanSheet'])->name('integracoes.sinan.sheet');
     Route::get('casos/{case}/sinan/previa', [IntegrationController::class, 'sinanPreview'])->name('integracoes.sinan.preview');
     Route::post('casos/{case}/sinan/dispensar', [IntegrationController::class, 'sinanWaive'])->name('integracoes.sinan.waive');
     Route::post('integracoes/{dispatch}/concluir', [IntegrationController::class, 'confirm'])->name('integracoes.confirm');

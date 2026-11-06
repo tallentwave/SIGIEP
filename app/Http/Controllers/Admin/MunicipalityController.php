@@ -7,6 +7,7 @@ use App\Enums\ViolenceType;
 use App\Http\Controllers\Controller;
 use App\Models\FlowStep;
 use App\Models\Municipality;
+use App\Support\Ibge;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -119,7 +120,15 @@ class MunicipalityController extends Controller
         $d = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'uf' => ['required', 'string', 'size:2'],
-            'ibge_code' => ['nullable', 'digits:7', Rule::unique('municipalities', 'ibge_code')->ignore($m?->id)],
+            'ibge_code' => ['nullable', 'digits:7', Rule::unique('municipalities', 'ibge_code')->ignore($m?->id),
+                function ($attr, $value, $fail) use ($request) {
+                    if (! Ibge::isValid((string) $value)) {
+                        return $fail('Código IBGE inválido: confira os 7 dígitos (o último é verificador).');
+                    }
+                    if (Ibge::uf($value) !== strtoupper((string) $request->input('uf'))) {
+                        $fail('O código IBGE pertence a outra UF ('.Ibge::uf($value).').');
+                    }
+                }],
             'contact_phone' => ['nullable', 'string', 'max:30'],
             'retention_years' => ['required', 'integer', 'between:1,50'],
             'sinan_unit_type' => ['required', 'integer', 'between:1,7'],

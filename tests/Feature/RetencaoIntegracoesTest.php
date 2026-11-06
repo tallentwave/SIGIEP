@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Notifications\AlertasDiarios;
 use App\Services\SinanExporter;
 use App\Support\CnjNumber;
+use App\Support\Ibge;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -344,7 +345,7 @@ class RetencaoIntegracoesTest extends TestCase
             'ficha' => $ficha ?: [
                 'local_ocorrencia' => 'residencia', 'zona' => 'urbana', 'ocorreu_outras_vezes' => 'sim', 'raca_cor' => 'parda',
                 'meio_agressao' => ['ameaca'], 'tipo_sexual' => ['estupro'], 'vinculo_autor' => 'padrasto',
-                'sexo_autor' => 'masculino', 'faixa_autor' => '18_59', 'suspeita_alcool' => 'nao', 'num_envolvidos' => 'um',
+                'sexo_autor' => 'masculino', 'faixa_autor' => 'adulta', 'suspeita_alcool' => 'nao', 'num_envolvidos' => 'um',
             ], ...$over,
         ], Child::create(['name' => 'Maria Teste', 'sex' => 'Feminino', 'birth_date' => $violence->copy()->subYears(8)->subMonths(2), 'mother_name' => 'Ana', 'address' => 'Rua A', 'neighborhood' => 'Centro']));
     }
@@ -375,7 +376,7 @@ class RetencaoIntegracoesTest extends TestCase
         $this->assertSame(['1', '2', '2'], [$row['SEX_ESTUPR'], $row['SEX_ASSEDI'], $row['SEX_PORNO']]);
         // Autor
         $this->assertSame(['1', '2', '2', '2'], [$row['REL_PAD'], $row['REL_PAI'], $row['REL_MAE'], $row['REL_DESCO']]);
-        $this->assertSame(['1', '2', '1', '1'], [$row['NUM_ENVOL'], $row['AUTOR_ALCO'], $row['AUTOR_SEXO'], $row['NUM_ENVOL']]);
+        $this->assertSame(['1', '2', '1', '4'], [$row['NUM_ENVOL'], $row['AUTOR_ALCO'], $row['AUTOR_SEXO'], $row['CICL_VID_AU']]);
         // Encaminhamentos: existentes = 1, demais = 2
         $this->assertSame(['1', '1', '2', '2'], [$row['CONS_TUTEL'], $row['ENC_SAUDE'], $row['ASSIST_SOC'], $row['INFAN_JUV']]);
         $this->assertSame('', $row['NU_NOTIFIC']);
@@ -520,5 +521,90 @@ class RetencaoIntegracoesTest extends TestCase
         );
         $this->assertSame(1, $data['byAge']['0–5']);
         $this->assertSame(0, $data['byAge']['6–11']);
+    }
+
+    // ===================== IBGE, ficha SINAN e prontidão =====================
+
+    public function test_ibge_code_validation(): void
+    {
+        $this->assertTrue(Ibge::isValid('3550308')); // São Paulo/SP
+        $this->assertTrue(Ibge::isValid('3304557')); // Rio de Janeiro/RJ
+        $this->assertFalse(Ibge::isValid('3550309')); // DV errado
+        $this->assertFalse(Ibge::isValid('9950308')); // UF inexistente
+        $this->assertFalse(Ibge::isValid('355030'));
+        $this->assertSame('SP', Ibge::uf('3550308'));
+    }
+
+    public function test_municipality_form_rejects_wrong_ibge_or_uf_mismatch(): void
+    {
+        $admin = User::factory()->role(Role::Administrador)->create(['municipality_id' => null]);
+        $base = ['name' => 'Cidade', 'uf' => 'SP', 'retention_years' => 10, 'sinan_unit_type' => 2, 'active' => 1];
+        $this->actingAs($admin);
+
+        $this->post('/admin/municipios', [...$base, 'ibge_code' => '3550309'])->assertSessionHasErrors('ibge_code');
+        $this->post('/admin/municipios', [...$base, 'uf' => 'RJ', 'ibge_code' => '3550308'])->assertSessionHasErrors('ibge_code'); // código de SP em município do RJ
+        $this->post('/admin/municipios', [...$base, 'ibge_code' => '3550308'])->assertSessionHasNoErrors();
+        $this->assertSame('3550308', Municipality::where('name', 'Cidade')->value('ibge_code'));
+    }
+
+    public function test_municipality_readiness_and_dashboard_warning(): void
+    {
+        $m = Municipality::factory()->create(['ibge_code' => null, 'sinan_unit_name' => null]);
+        $coord = $this->user(Role::Coordenacao, $m);
+
+        $this->assertSame([false, false, false], array_values($m->readiness()));
+        $this->actingAs($coord)->get('/')->assertSee('Configuração do município pendente')->assertSee('Código IBGE válido');
+
+        $m->update(['ibge_code' => '3550308', 'sinan_unit_name' => 'CREAS']);
+        $m->flowSteps()->create(['name' => 'CT', 'destination' => 'conselho_tutelar', 'due_days' => 1]);
+        $this->assertSame([true, true, true], array_values($m->fresh()->readiness()));
+        $this->actingAs($coord->fresh())->get('/')->assertDontSee('Configuração do município pendente'); // requisição nova recarrega o município
+    }
+
+    public function test_sinan_sheet_pdf_lists_official_field_numbers_and_registers_dispatch(): void
+    {
+        $m = $this->muni();
+        $psi = $this->user(Role::Psicologo, $m);
+        $case = $this->sinanCase($m, [], ['responsible_id' => $psi->id]);
+
+        $items = (new SinanExporter)->sheet((new SinanExporter)->map($case)['row']);
+        $byN = collect($items)->keyBy('n');
+        $this->assertSame(['1', '2', '3', '4', '5', '6', '7', '9', '10', '11', '12', '13', '15', '18', '19', '20', '22', '23', '40', '41', '50', '52', '53', '56', '57', '58', '60', '61', '62', '63', '64', '65'],
+            collect($items)->pluck('n')->all());
+        $this->assertStringContainsString('Residência (01)', $byN['52']['value']);
+        $this->assertSame('Sim (1)', $byN['58']['group']['Estupro']);
+        $this->assertSame('Não (2)', $byN['58']['group']['Assédio sexual']);
+        $this->assertSame('Sim (1)', $byN['61']['group']['Padrasto']);
+        $this->assertStringContainsString('Pessoa adulta (4)', $byN['64']['value']);
+
+        $res = $this->actingAs($psi)->post("/casos/{$case->id}/sinan/ficha")->assertOk();
+        $this->assertStringStartsWith('%PDF', $res->getContent());
+        $this->assertSame(1, $case->dispatches()->where('system', 'sinan')->where('status', 'gerado')->count());
+        $this->assertDatabaseHas('audit_logs', ['user_id' => $psi->id, 'action' => AuditAction::IntegrationGenerated->value]);
+
+        $this->actingAs($this->user(Role::Recepcao, $m))->post("/casos/{$case->id}/sinan/ficha")->assertForbidden();
+    }
+
+    public function test_sinan_sheet_is_blocked_with_missing_mandatory_data(): void
+    {
+        $m = $this->muni(['sinan_unit_name' => null]);
+        $psi = $this->user(Role::Psicologo, $m);
+        $case = $this->sinanCase($m, [], ['responsible_id' => $psi->id]);
+
+        $this->actingAs($psi)->post("/casos/{$case->id}/sinan/ficha")->assertSessionHasErrors();
+        $this->assertSame(0, $case->dispatches()->count());
+    }
+
+    public function test_sinan_relationship_categories_follow_the_official_list(): void
+    {
+        $m = $this->muni();
+        foreach (['namorado' => 'REL_NAMO', 'ex_conjuge' => 'REL_EXCON', 'filho' => 'REL_FILHO', 'policial' => 'REL_POL',
+            'patrao_chefe' => 'REL_PATRAO', 'proprietario_estabelecimento' => 'REL_PROPRI', 'outro_familiar' => 'REL_OUTROS'] as $opt => $col) {
+            $row = (new SinanExporter)->map($this->sinanCase($m, ['vinculo_autor' => $opt]))['row'];
+            $this->assertSame('1', $row[$col], "{$opt} → {$col}");
+            $this->assertSame('2', $row['REL_PAI']);
+        }
+        $row = (new SinanExporter)->map($this->sinanCase($m, ['faixa_autor' => 'adolescente']))['row'];
+        $this->assertSame('2', $row['CICL_VID_AU']);
     }
 }

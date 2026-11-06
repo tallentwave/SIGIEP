@@ -23,6 +23,8 @@
             <span class="muted">· o SINAN não tem API pública: o arquivo vai à vigilância epidemiológica do município, que informa o nº da notificação.</span></p>
         <form method="post" action="{{ route('integracoes.sinan.file') }}" style="display:inline">@csrf
             <input type="hidden" name="ids[]" value="{{ $case->id }}"><button>Gerar arquivo SINAN (CSV)</button></form>
+        <form method="post" action="{{ route('integracoes.sinan.sheet', $case) }}" style="display:inline">@csrf
+            <button class="ghost">Ficha para digitação (PDF)</button></form>
         <details style="margin-top:10px"><summary class="muted" style="cursor:pointer">Já foi notificado por outra unidade? Dispensar</summary>
             <form method="post" action="{{ route('integracoes.sinan.waive', $case) }}" class="row" style="margin-top:8px">@csrf
                 <div style="flex:3"><label>Justificativa (ex.: notificado pela UBS em dd/mm, nº …)</label><input type="text" name="reason" required minlength="10" maxlength="500"></div>

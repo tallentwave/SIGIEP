@@ -24,8 +24,9 @@ class SinanExporter
         'VIOL_FISIC', 'VIOL_PSICO', 'VIOL_SEXU', 'VIOL_NEGLI', 'VIOL_FINAN', 'VIOL_OUTR', 'VIOL_ESPEC',
         'AG_FORCA', 'AG_ENFOR', 'AG_OBJETO', 'AG_CORTE', 'AG_QUENTE', 'AG_ENVEN', 'AG_FOGO', 'AG_AMEACA', 'AG_OUTROS',
         'SEX_ASSEDI', 'SEX_ESTUPR', 'SEX_PORNO', 'SEX_EXPLO', 'SEX_OUTRO', 'SEX_ESPEC',
-        'NUM_ENVOL', 'REL_PAI', 'REL_MAE', 'REL_PAD', 'REL_MAD', 'REL_CONJ', 'REL_IRMAO', 'REL_CONHEC', 'REL_DESCO', 'REL_CUIDA',
-        'REL_INST', 'REL_OUTROS', 'REL_ESPEC', 'AUTOR_SEXO', 'AUTOR_ALCO',
+        'NUM_ENVOL', 'REL_PAI', 'REL_MAE', 'REL_PAD', 'REL_MAD', 'REL_CONJ', 'REL_EXCON', 'REL_NAMO', 'REL_EXNAM', 'REL_FILHO', 'REL_IRMAO',
+        'REL_CONHEC', 'REL_DESCO', 'REL_CUIDA', 'REL_PATRAO', 'REL_INST', 'REL_POL', 'REL_PROPRI', 'REL_OUTROS', 'REL_ESPEC',
+        'AUTOR_SEXO', 'AUTOR_ALCO', 'CICL_VID_AU',
         'ENC_SAUDE', 'ASSIST_SOC', 'REDE_EDUCA', 'CONS_TUTEL', 'DELEG', 'INFAN_JUV', 'DS_OBS',
     ];
 
@@ -46,8 +47,12 @@ class SinanExporter
         'exploracao_sexual' => 'SEX_EXPLO', 'atentado_pudor' => 'SEX_OUTRO', 'outro' => 'SEX_OUTRO'];
 
     private const VINCULO = ['pai' => 'REL_PAI', 'mae' => 'REL_MAE', 'padrasto' => 'REL_PAD', 'madrasta' => 'REL_MAD',
-        'conjuge_namorado' => 'REL_CONJ', 'irmao' => 'REL_IRMAO', 'amigo_conhecido' => 'REL_CONHEC', 'desconhecido' => 'REL_DESCO',
-        'cuidador' => 'REL_CUIDA', 'professor_instituicao' => 'REL_INST', 'outro_familiar' => 'REL_OUTROS', 'outro' => 'REL_OUTROS'];
+        'conjuge' => 'REL_CONJ', 'ex_conjuge' => 'REL_EXCON', 'namorado' => 'REL_NAMO', 'ex_namorado' => 'REL_EXNAM',
+        'filho' => 'REL_FILHO', 'irmao' => 'REL_IRMAO', 'amigo_conhecido' => 'REL_CONHEC', 'desconhecido' => 'REL_DESCO',
+        'cuidador' => 'REL_CUIDA', 'patrao_chefe' => 'REL_PATRAO', 'professor_instituicao' => 'REL_INST', 'policial' => 'REL_POL',
+        'proprietario_estabelecimento' => 'REL_PROPRI', 'outro_familiar' => 'REL_OUTROS', 'outro' => 'REL_OUTROS'];
+
+    private const CICLO = ['crianca' => '1', 'adolescente' => '2', 'jovem' => '3', 'adulta' => '4', 'idosa' => '5', 'ignorado' => '9'];
 
     private const ENCAMINHAMENTO = [
         'conselho_tutelar' => 'CONS_TUTEL', 'saude' => 'ENC_SAUDE', 'creas' => 'ASSIST_SOC', 'cras' => 'ASSIST_SOC',
@@ -173,18 +178,16 @@ class SinanExporter
             $row[$col] = $vinculo ? '2' : '9';
         }
         if ($vinculo) {
-            $row[self::VINCULO[$vinculo]] = '1';
+            $row[self::VINCULO[$vinculo] ?? 'REL_OUTROS'] = '1';
             if (in_array($vinculo, ['outro_familiar', 'outro'], true)) {
                 $row['REL_ESPEC'] = $vinculo === 'outro_familiar' ? 'Outro familiar' : 'Outro';
-            }
-            if ($vinculo === 'conjuge_namorado') {
-                $warnings[] = 'REL_CONJ: a ficha agrupa cônjuge/namorado(a); confirme se é cônjuge, ex-cônjuge, namorado(a) ou ex-namorado(a).';
             }
         } else {
             $warnings[] = 'REL_*: vínculo do provável autor não informado; enviado como 9 – Ignorado.';
         }
         $row['AUTOR_SEXO'] = ['masculino' => '1', 'feminino' => '2', 'ambos' => '3', 'ignorado' => '9'][$f['sexo_autor'] ?? 'ignorado'];
         $row['AUTOR_ALCO'] = self::SIM_NAO[$f['suspeita_alcool'] ?? 'ignorado'];
+        $row['CICL_VID_AU'] = self::CICLO[$f['faixa_autor'] ?? 'ignorado'];
 
         // Encaminhamentos (65): 9 se ainda não há nenhum registrado
         $dests = $case->referrals->map(fn ($r) => $r->destination->value)->unique();
@@ -204,6 +207,87 @@ class SinanExporter
         $row['DS_OBS'] = 'Gerado pelo SIGIEP · protocolo '.$case->protocol;
 
         return ['row' => $row, 'warnings' => array_values(array_unique($warnings)), 'errors' => array_values(array_unique($errors))];
+    }
+
+    private const SIM_NAO_LABEL = ['1' => 'Sim', '2' => 'Não', '8' => 'Não se aplica', '9' => 'Ignorado'];
+
+    /** Rótulos dos campos de múltipla marcação (números 56, 57, 58, 61 e 65 da ficha). */
+    private const GROUPS = [
+        '56' => ['Tipo de violência', ['VIOL_FISIC' => 'Física', 'VIOL_PSICO' => 'Psicológica/Moral', 'VIOL_SEXU' => 'Sexual',
+            'VIOL_NEGLI' => 'Negligência/Abandono', 'VIOL_FINAN' => 'Financeira/Econômica', 'VIOL_OUTR' => 'Outros']],
+        '57' => ['Meio de agressão', ['AG_FORCA' => 'Força corporal/Espancamento', 'AG_ENFOR' => 'Enforcamento', 'AG_OBJETO' => 'Objeto contundente',
+            'AG_CORTE' => 'Objeto perfurocortante', 'AG_QUENTE' => 'Substância/objeto quente', 'AG_ENVEN' => 'Envenenamento',
+            'AG_FOGO' => 'Arma de fogo', 'AG_AMEACA' => 'Ameaça', 'AG_OUTROS' => 'Outro']],
+        '58' => ['Se violência sexual, qual tipo', ['SEX_ASSEDI' => 'Assédio sexual', 'SEX_ESTUPR' => 'Estupro', 'SEX_PORNO' => 'Pornografia infantil',
+            'SEX_EXPLO' => 'Exploração sexual', 'SEX_OUTRO' => 'Outro']],
+        '61' => ['Relação com a pessoa atendida (provável autor)', ['REL_PAI' => 'Pai', 'REL_MAE' => 'Mãe', 'REL_PAD' => 'Padrasto', 'REL_MAD' => 'Madrasta',
+            'REL_CONJ' => 'Cônjuge', 'REL_EXCON' => 'Ex-cônjuge', 'REL_NAMO' => 'Namorado(a)', 'REL_EXNAM' => 'Ex-namorado(a)', 'REL_FILHO' => 'Filho(a)',
+            'REL_IRMAO' => 'Irmão(ã)', 'REL_CONHEC' => 'Amigos/conhecidos', 'REL_DESCO' => 'Desconhecido', 'REL_CUIDA' => 'Cuidador(a)',
+            'REL_PATRAO' => 'Patrão/chefe', 'REL_INST' => 'Relação institucional', 'REL_POL' => 'Policial/agente da lei',
+            'REL_PROPRI' => 'Proprietário de estabelecimento', 'REL_OUTROS' => 'Outros']],
+        '65' => ['Encaminhamento', ['ENC_SAUDE' => 'Rede da Saúde', 'ASSIST_SOC' => 'Assistência Social', 'REDE_EDUCA' => 'Rede da Educação',
+            'CONS_TUTEL' => 'Conselho Tutelar', 'DELEG' => 'Delegacia', 'INFAN_JUV' => 'Justiça da Infância e da Juventude']],
+    ];
+
+    /**
+     * Ficha numerada na ordem do dicionário SINAN NET v5.1, para digitação/conferência.
+     *
+     * @return list<array{n: string, title: string, value?: string, group?: array<string,string>}>
+     */
+    public function sheet(array $row): array
+    {
+        $lbl = fn (array $map, string $v) => ($map[$v] ?? '—').($v !== '' ? " ({$v})" : '');
+        $simple = fn (string $n, string $title, string $value) => ['n' => $n, 'title' => $title, 'value' => $value !== '' ? $value : '—'];
+
+        $items = [
+            $simple('1', 'Tipo de notificação', $lbl(['1' => 'Negativa', '2' => 'Individual', '3' => 'Surto', '4' => 'Agregado'], $row['TP_NOT'])),
+            $simple('2', 'Agravo (CID-10)', $row['ID_AGRAVO'].' — Violência interpessoal/autoprovocada'),
+            $simple('3', 'Data da notificação', $row['DT_NOTIFIC']),
+            $simple('4', 'UF de notificação', $row['SG_UF_NOT']),
+            $simple('5', 'Município de notificação (IBGE)', $row['ID_MUNICIP']),
+            $simple('6', 'Unidade notificadora', $lbl(['1' => 'Unidade de Saúde', '2' => 'Unidade de Assistência Social', '3' => 'Estabelecimento de Ensino',
+                '4' => 'Conselho Tutelar', '5' => 'Unidade de Saúde Indígena', '6' => 'Centro Esp. de Atendimento à Mulher', '7' => 'Outros'], $row['TP_UNI_EXT'])),
+            $simple('7', 'Nome / código da unidade', trim($row['NM_UNI_EXT'].' · '.$row['CO_UNI_EXT'], ' ·')),
+            $simple('9', 'Data da ocorrência da violência', $row['DT_OCOR']),
+            $simple('10', 'Nome do paciente', $row['NM_PACIENT']),
+            $simple('11', 'Data de nascimento', $row['DT_NASC']),
+            $simple('12', 'Idade (unidade+valor)', $row['NU_IDADE_N']),
+            $simple('13', 'Sexo', $lbl(['M' => 'Masculino', 'F' => 'Feminino', 'I' => 'Ignorado'], $row['CS_SEXO'])),
+            $simple('15', 'Raça/Cor', $lbl(['1' => 'Branca', '2' => 'Preta', '3' => 'Amarela', '4' => 'Parda', '5' => 'Indígena', '9' => 'Ignorado'], $row['CS_RACA'])),
+            $simple('18', 'Nome da mãe', $row['NM_MAE_PA']),
+            $simple('19', 'UF de residência', $row['SG_UF']),
+            $simple('20', 'Município de residência (IBGE)', $row['ID_MN_RESI']),
+            $simple('22', 'Bairro', $row['NM_BAIRRO']),
+            $simple('23', 'Logradouro', $row['NM_LOGRAD']),
+            $simple('40', 'UF de ocorrência', $row['SG_UF_OCOR']),
+            $simple('41', 'Município de ocorrência (IBGE)', $row['ID_MN_OCOR']),
+            $simple('50', 'Zona de ocorrência', $lbl(['1' => 'Urbana', '2' => 'Rural', '3' => 'Periurbana', '9' => 'Ignorado'], $row['ZONA_OCOR'])),
+            $simple('52', 'Local de ocorrência', $lbl(['01' => 'Residência', '02' => 'Habitação coletiva', '03' => 'Escola', '05' => 'Bar ou similar', '06' => 'Via pública',
+                '07' => 'Comércio/Serviços', '09' => 'Outros', '99' => 'Ignorado'], $row['LOCAL_OCOR']).($row['LOCAL_ESPE'] ? ' — '.$row['LOCAL_ESPE'] : '')),
+            $simple('53', 'Ocorreu outras vezes?', $lbl(self::SIM_NAO_LABEL, $row['OUT_VEZES'])),
+        ];
+
+        $group = function (string $n) use ($row) {
+            [$title, $cols] = self::GROUPS[$n];
+            $out = [];
+            foreach ($cols as $col => $label) {
+                $out[$label] = (self::SIM_NAO_LABEL[$row[$col]] ?? '—')." ({$row[$col]})";
+            }
+
+            return ['n' => $n, 'title' => $title, 'group' => $out];
+        };
+
+        foreach (['56', '57', '58'] as $n) {
+            $items[] = $group($n);
+        }
+        $items[] = $simple('60', 'Número de envolvidos', $lbl(['1' => 'Um', '2' => 'Dois ou mais', '9' => 'Ignorado'], $row['NUM_ENVOL']));
+        $items[] = $group('61');
+        $items[] = $simple('62', 'Sexo do provável autor', $lbl(['1' => 'Masculino', '2' => 'Feminino', '3' => 'Ambos os sexos', '9' => 'Ignorado'], $row['AUTOR_SEXO']));
+        $items[] = $simple('63', 'Suspeita de uso de álcool', $lbl(self::SIM_NAO_LABEL, $row['AUTOR_ALCO']));
+        $items[] = $simple('64', 'Ciclo de vida do provável autor', $lbl(['1' => 'Criança', '2' => 'Adolescente', '3' => 'Jovem', '4' => 'Pessoa adulta', '5' => 'Pessoa idosa', '9' => 'Ignorado'], $row['CICL_VID_AU']));
+        $items[] = $group('65');
+
+        return $items;
     }
 
     /** CSV (UTF-8 com BOM, separador ";", cabeçalho = nomes DBF). */

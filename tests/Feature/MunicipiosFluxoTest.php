@@ -294,7 +294,7 @@ class MunicipiosFluxoTest extends TestCase
         $this->actingAs($psi)->post('/casos', [
             'child' => ['name' => 'Ana'], 'guardians' => [],
             'case' => ['condition' => 'vitima', 'violence_types' => ['sexual'], 'origin' => 'CT', 'received_at' => now()->toDateString()],
-            'ficha' => ['vinculo_autor' => 'padrasto', 'meio_agressao' => ['ameaca'], 'faixa_autor' => '18_59'],
+            'ficha' => ['vinculo_autor' => 'padrasto', 'meio_agressao' => ['ameaca'], 'faixa_autor' => 'adulta'],
         ])->assertSessionHasNoErrors();
         $case = CaseRecord::firstOrFail();
         $this->assertSame('padrasto', $case->ficha['vinculo_autor']);

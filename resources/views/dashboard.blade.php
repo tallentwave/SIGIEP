@@ -2,6 +2,10 @@
 @section('title', 'Painel')
 @section('content')
 <h1>Painel</h1>
+@if (! empty($setup))
+    <div class="errors" style="border-color:var(--warn);color:var(--warn)"><strong>Configuração do município pendente:</strong> {{ implode(' · ', $setup) }}.
+        Peça ao administrador (código IBGE e unidade do SINAN em <em>Municípios</em>) e cadastre o <a href="{{ route('admin.municipios.fluxo', auth()->user()->municipality_id) }}">fluxo municipal</a>.</div>
+@endif
 <div class="grid" style="margin-bottom:16px">
     <div class="card stat"><b>{{ $open }}</b><span class="muted">casos em andamento</span></div>
     <div class="card stat"><b style="color:var(--bad)">{{ $urgent }}</b><span class="muted">casos urgentes</span></div>

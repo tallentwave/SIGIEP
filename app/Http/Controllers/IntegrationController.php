@@ -84,6 +84,26 @@ class IntegrationController extends Controller
         ]);
     }
 
+    /** Ficha numerada (ordem do dicionário SINAN) para digitação e conferência pela vigilância. */
+    public function sinanSheet(Request $request, CaseRecord $case, SinanExporter $exporter)
+    {
+        $this->authorize('readReports', $case);
+        $m = $exporter->map($case);
+        if ($m['errors']) {
+            return back()->withErrors($m['errors']);
+        }
+
+        $case->dispatches()->create([
+            'system' => DispatchSystem::Sinan, 'status' => DispatchStatus::Gerado, 'batch' => (string) Str::ulid(),
+            'payload_hash' => hash('sha256', json_encode($m['row'])), 'created_by' => $request->user()->id,
+        ]);
+        AuditLog::record(AuditAction::IntegrationGenerated, $case, $case->id, ['system' => 'sinan', 'formato' => 'ficha']);
+
+        return Pdf::loadView('relatorios.sinan_ficha_pdf', [
+            'case' => $case, 'items' => $exporter->sheet($m['row']), 'warnings' => $m['warnings'], 'author' => $request->user(),
+        ])->download('ficha-sinan-'.$case->protocol.'.pdf');
+    }
+
     /** Pré-visualização do que será enviado: avisos e pendências, sem gerar arquivo. */
     public function sinanPreview(Request $request, CaseRecord $case, SinanExporter $exporter)
     {

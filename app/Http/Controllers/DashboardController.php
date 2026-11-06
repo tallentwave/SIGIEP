@@ -21,7 +21,11 @@ class DashboardController extends Controller
 
         $visibleIds = (clone $cases)->select('cases.id');
 
+        $setup = $user->isCoordination() && $user->municipality
+            ? array_keys(array_filter($user->municipality->readiness(), fn ($ok) => ! $ok)) : [];
+
         return view('dashboard', [
+            'setup' => $setup,
             'open' => (clone $cases)->where('status', '!=', CaseStatus::Encerrado)->count(),
             'urgent' => (clone $cases)->where('urgent', true)->where('status', '!=', CaseStatus::Encerrado)->count(),
             'awaiting' => (clone $cases)->where('status', CaseStatus::Recebido)->count(),

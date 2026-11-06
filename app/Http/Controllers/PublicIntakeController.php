@@ -10,15 +10,15 @@ use App\Enums\ViolenceType;
 use App\Models\AuditLog;
 use App\Models\CaseRecord;
 use App\Models\Child;
+use App\Models\Guardian;
 use App\Models\Municipality;
 use App\Models\User;
 use App\Notifications\NovoCasoPublico;
 use App\Services\FlowService;
-use App\Support\Ficha;
+use App\Support\CaseInput;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Validation\Rule;
 
 /** Recebimento de denúncias pela população (sem login), por município. */
 class PublicIntakeController extends Controller
@@ -34,8 +34,12 @@ class PublicIntakeController extends Controller
     {
         return view('publico.form', [
             'municipality' => $this->municipality($slug),
+            'case' => new CaseRecord,
+            'child' => new Child,
+            'guardians' => collect([new Guardian]),
             'violenceTypes' => ViolenceType::cases(),
             'conditions' => Condition::cases(),
+            'canReadSensitive' => false,
         ]);
     }
 
@@ -48,61 +52,32 @@ class PublicIntakeController extends Controller
             return redirect()->route('denuncia.index');
         }
 
-        $v = $request->validate([
-            'condition' => ['required', Rule::enum(Condition::class)],
-            'violence_types' => ['required', 'array', 'min:1'],
-            'violence_types.*' => [Rule::enum(ViolenceType::class)],
-            'description' => ['required', 'string', 'min:10', 'max:10000'],
-            'urgent' => ['boolean'],
-            'violence_date' => ['nullable', 'date', 'before_or_equal:today'],
-            'child.name' => ['nullable', 'string', 'max:255'],
-            'child.age' => ['nullable', 'integer', 'between:0,18'],
-            'child.sex' => ['nullable', 'string', 'max:20'],
-            'child.school' => ['nullable', 'string', 'max:255'],
-            'child.address' => ['nullable', 'string', 'max:255'],
-            'child.neighborhood' => ['nullable', 'string', 'max:255'],
-            'guardian.name' => ['nullable', 'string', 'max:255'],
-            'guardian.phone' => ['nullable', 'string', 'max:30'],
-            ...Ficha::rules('ficha'),
-        ], [], [
-            'condition' => 'condição', 'violence_types' => 'tipo de violência', 'description' => 'descrição dos fatos',
-            'child.age' => 'idade',
-        ]);
+        $v = CaseInput::normalize($request->validate(CaseInput::rules(public: true), [], CaseInput::attributes()));
 
-        $ficha = Ficha::clean($v['ficha'] ?? []);
+        $ficha = $v['ficha'];
         if (! empty($ficha['notificante_anonimo'])) {
             unset($ficha['notificante_nome'], $ficha['notificante_telefone'], $ficha['notificante_email'], $ficha['vinculo_notificante']);
         }
 
         $case = DB::transaction(function () use ($v, $municipality, $ficha) {
-            $age = $v['child']['age'] ?? null;
             $child = Child::create([
+                ...$v['child'],
                 'name' => $v['child']['name'] ?? null ?: 'Não identificado(a)',
-                'birth_date' => $age !== null ? now()->subYears((int) $age)->toDateString() : null,
-                'birth_date_estimated' => $age !== null,
-                'sex' => $v['child']['sex'] ?? null,
-                'school' => $v['child']['school'] ?? null,
-                'address' => $v['child']['address'] ?? null,
-                'neighborhood' => $v['child']['neighborhood'] ?? null,
-                'city' => $municipality->name,
+                'city' => $v['child']['city'] ?? null ?: $municipality->name,
             ]);
-            if (filled($v['guardian']['name'] ?? null)) {
-                $child->guardians()->create($v['guardian']);
+            foreach ($v['guardians'] as $g) {
+                $child->guardians()->create($g);
             }
 
             $case = CaseRecord::create([
+                ...$v['case'],
                 'protocol' => CaseRecord::nextProtocol(),
                 'municipality_id' => $municipality->id,
                 'source' => 'publica',
                 'child_id' => $child->id,
-                'condition' => $v['condition'],
-                'violence_types' => $v['violence_types'],
                 'status' => CaseStatus::Recebido,
                 'origin' => 'Denúncia pública',
                 'received_at' => now()->toDateString(),
-                'violence_date' => $v['violence_date'] ?? null,
-                'urgent' => (bool) ($v['urgent'] ?? false),
-                'initial_report' => $v['description'],
                 'ficha' => $ficha,
             ]);
 

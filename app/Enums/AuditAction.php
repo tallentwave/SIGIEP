@@ -16,6 +16,13 @@ enum AuditAction: string
     case Claimed = 'assumiu_caso';
     case Exported = 'exportou';
     case PublicReport = 'denuncia_publica';
+    case PasswordResetRequested = 'senha_redefinicao_solicitada';
+    case PasswordReset = 'senha_redefinida';
+    case TwoFactorEnabled = '2fa_ativado';
+    case TwoFactorDisabled = '2fa_desativado';
+    case TwoFactorFailed = '2fa_falhou';
+    case TwoFactorRecoveryUsed = '2fa_codigo_recuperacao';
+    case TwoFactorAdminReset = '2fa_redefinido_admin';
 
     public function label(): string
     {
@@ -32,6 +39,13 @@ enum AuditAction: string
             self::Claimed => 'Assumiu caso',
             self::Exported => 'Gerou relatório/PDF',
             self::PublicReport => 'Denúncia pública recebida',
+            self::PasswordResetRequested => 'Pedido de redefinição de senha',
+            self::PasswordReset => 'Senha redefinida por e-mail',
+            self::TwoFactorEnabled => '2FA ativado',
+            self::TwoFactorDisabled => '2FA desativado',
+            self::TwoFactorFailed => 'Falha no 2FA',
+            self::TwoFactorRecoveryUsed => 'Código de recuperação usado',
+            self::TwoFactorAdminReset => '2FA redefinido pelo admin',
         };
     }
 }

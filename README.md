@@ -16,6 +16,7 @@ vítimas ou testemunhas de violência (Lei 13.431/2017). Laravel 13 · PHP 8.3 �
 | **Administração** | Usuários, municípios e fluxos pela tela; senha provisória com troca obrigatória no 1º acesso |
 | **Estatísticas e PDF** | Indicadores agregados por período/município (tipo, faixa etária, situação, mês, órgão, tempo até 1ª escuta, retorno de encaminhamentos), PDF estatístico e PDF individual do caso |
 | **Alertas** | `php artisan sigiep:alertas` (agendado 07:30): encaminhamentos atrasados, escutas das próximas 24h, casos parados na fila. Só protocolos por e-mail |
+| **Segurança da conta** | Recuperação de senha por e-mail (link de 60 min, uso único, resposta idêntica exista o e-mail ou não, derruba sessões abertas) e **2FA por aplicativo autenticador** (TOTP) com códigos de recuperação. Obrigatório para Administrador, Coordenação, Psicólogo e Assistente Social; opcional para Recepção |
 | **Auditoria** | Login/falhas, leitura de caso e relato, alterações (só nomes dos campos), exportações, acessos negados, denúncias públicas |
 
 ## Quem vê o quê
@@ -45,6 +46,9 @@ php artisan serve
 php artisan test
 ```
 
+Em desenvolvimento, para não configurar 2FA a cada usuário demo, use `SIGIEP_2FA_REQUIRED=` (vazio) no `.env`.
+O seeder **não** cadastra fluxo: cada município o insere em *Fluxo municipal*.
+
 Usuários demo: `coordenacao@`, `psicologo@`, `social@`, `recepcao@` + `sigiep.test`.
 
 ## Produção: checklist
@@ -52,9 +56,10 @@ Usuários demo: `coordenacao@`, `psicologo@`, `social@`, `recepcao@` + `sigiep.t
 - `APP_ENV=production`, `APP_DEBUG=false`, HTTPS, `APP_KEY` com backup, banco MySQL/PostgreSQL.
 - Configurar `MAIL_*` (em dev o e-mail vai para o log) e o cron do agendador: `* * * * * php artisan schedule:run`.
 - **Não** rodar o seeder em produção; crie o primeiro administrador via `php artisan tinker`.
+- 2FA: o padrão já é seguro; **não** defina `SIGIEP_2FA_REQUIRED` em produção. Quem perder o celular e os códigos pede ao administrador (Usuários → Editar → Redefinir 2FA).
 - Revisar o fluxo de cada município em *Fluxo municipal* antes de abrir o canal público.
 
 ## Pendente / próximos passos
 
-Recuperação de senha por e-mail, 2FA para perfis técnicos, política de retenção/anonimização (LGPD),
+Política de retenção/anonimização (LGPD),
 integração SINAN/CNJ, consulta de andamento pelo denunciante (hoje deliberadamente inexistente por sigilo).

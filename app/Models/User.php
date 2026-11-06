@@ -13,7 +13,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 #[Fillable(['name', 'email', 'password', 'role', 'registro_profissional', 'active', 'municipality_id', 'must_change_password'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -27,12 +27,26 @@ class User extends Authenticatable
             'role' => Role::class,
             'active' => 'boolean',
             'must_change_password' => 'boolean',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
         ];
     }
 
     public function municipality(): BelongsTo
     {
         return $this->belongsTo(Municipality::class);
+    }
+
+    public function hasTwoFactor(): bool
+    {
+        return $this->two_factor_confirmed_at !== null && $this->two_factor_secret !== null;
+    }
+
+    /** Perfis que leem conteúdo sigiloso ou administram o sistema precisam de 2FA. */
+    public function requiresTwoFactor(): bool
+    {
+        return in_array($this->role->value, config('sigiep.two_factor_required_roles', []), true);
     }
 
     public function isAdmin(): bool

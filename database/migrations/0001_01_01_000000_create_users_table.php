@@ -22,6 +22,11 @@ return new class extends Migration
             $table->boolean('active')->default(true);
             $table->unsignedBigInteger('municipality_id')->nullable()->index();
             $table->boolean('must_change_password')->default(false);
+            // 2FA (TOTP). Segredo e códigos de recuperação são criptografados.
+            $table->text('two_factor_secret')->nullable();
+            $table->text('two_factor_recovery_codes')->nullable();
+            $table->timestamp('two_factor_confirmed_at')->nullable();
+            $table->unsignedBigInteger('two_factor_last_step')->nullable(); // anti-replay do código TOTP
             $table->rememberToken();
             $table->timestamps();
         });

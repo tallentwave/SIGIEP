@@ -8,11 +8,13 @@ use App\Http\Controllers\CaseController;
 use App\Http\Controllers\ChildController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PasswordController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PublicIntakeController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StatsController;
+use App\Http\Controllers\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 
 // Canal público de denúncia (sem login).
@@ -24,15 +26,32 @@ Route::get('/denuncia/{slug}/recebida', [PublicIntakeController::class, 'receive
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+    Route::get('/esqueci-senha', [PasswordResetController::class, 'request'])->name('password.request');
+    Route::post('/esqueci-senha', [PasswordResetController::class, 'email'])->middleware('throttle:3,1')->name('password.email');
+    Route::get('/redefinir-senha/{token}', [PasswordResetController::class, 'form'])->name('password.reset');
+    Route::post('/redefinir-senha', [PasswordResetController::class, 'update'])->middleware('throttle:6,1')->name('password.update');
 });
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    // Verificação em duas etapas (fora do middleware two-factor, senão haveria laço de redirecionamento).
+    Route::get('/2fa/configurar', [TwoFactorController::class, 'setup'])->name('2fa.setup');
+    Route::post('/2fa/configurar', [TwoFactorController::class, 'confirm'])->middleware('throttle:6,1')->name('2fa.confirm');
+    Route::get('/2fa/desafio', [TwoFactorController::class, 'challenge'])->name('2fa.challenge');
+    Route::post('/2fa/desafio', [TwoFactorController::class, 'verify'])->middleware('throttle:6,1')->name('2fa.verify');
+});
+
+Route::middleware(['auth', 'two-factor'])->group(function () {
+    // Gerenciar/desativar 2FA só depois de passar pelo desafio (senha sozinha não basta).
+    Route::get('/2fa', [TwoFactorController::class, 'manage'])->name('2fa.manage');
+    Route::post('/2fa/codigos', [TwoFactorController::class, 'regenerate'])->name('2fa.regenerate');
+    Route::delete('/2fa', [TwoFactorController::class, 'disable'])->name('2fa.disable');
     Route::get('/senha', [PasswordController::class, 'edit'])->name('senha.edit');
     Route::put('/senha', [PasswordController::class, 'update'])->name('senha.update');
 });
 
-Route::middleware(['auth', 'password.changed'])->group(function () {
+Route::middleware(['auth', 'two-factor', 'password.changed'])->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
 
     Route::resource('casos', CaseController::class)

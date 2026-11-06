@@ -24,6 +24,8 @@ class AuthController extends Controller
 
         if (Auth::attempt([...$credentials, 'active' => true], $request->boolean('remember'))) {
             $request->session()->regenerate();
+            // Todo login recomeça sem 2FA verificado; o desafio é por sessão.
+            $request->session()->forget('2fa_passed');
             AuditLog::record(AuditAction::Login);
 
             return redirect()->intended(route('dashboard'));

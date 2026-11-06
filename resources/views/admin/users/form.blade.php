@@ -14,6 +14,9 @@
         <div><label>{{ $user->exists ? 'Nova senha provisória (vazio = manter)' : 'Senha provisória *' }}</label><input type="password" name="password" autocomplete="new-password" @required(! $user->exists)></div>
     </div>
     <p class="muted">Mínimo 10 caracteres, com letras e números. O usuário é obrigado a trocar a senha no próximo acesso.</p>
+    @if ($user->exists && $user->hasTwoFactor())
+        <div class="check"><input type="checkbox" id="r2" name="reset_two_factor" value="1"><label for="r2" style="margin:0;color:inherit">Redefinir 2FA (usuário perdeu o celular e os códigos de recuperação)</label></div>
+    @endif
     <div class="check"><input type="hidden" name="active" value="0"><input type="checkbox" name="active" value="1" @checked(old('active', $user->active))> Usuário ativo</div>
     <p><button>Salvar</button> <a class="btn ghost" href="{{ route('admin.usuarios.index') }}">Cancelar</a></p>
 </form>

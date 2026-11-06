@@ -54,7 +54,7 @@
         @if (auth()->user()->isCoordination())<a href="{{ route('admin.municipios.fluxo', auth()->user()->municipality_id) }}">Fluxo municipal</a>@endif
         @can('admin') <a href="{{ route('admin.usuarios.index') }}">Usuários</a> <a href="{{ route('admin.municipios.index') }}">Municípios</a> @endcan
     </nav>
-    <span class="who"><a href="{{ route('senha.edit') }}">{{ auth()->user()->name }}</a> · {{ auth()->user()->role->label() }}{{ auth()->user()->municipality ? ' · '.auth()->user()->municipality->name : '' }}</span>
+    <span class="who"><a href="{{ route('2fa.manage') }}" title="Segurança da conta">{{ auth()->user()->name }}</a> · {{ auth()->user()->role->label() }}{{ auth()->user()->municipality ? ' · '.auth()->user()->municipality->name : '' }}</span>
     <form method="post" action="{{ route('logout') }}">@csrf <button class="ghost">Sair</button></form>
 </header>
 @endauth

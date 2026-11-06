@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Enums\ReferralDestination;
 use App\Enums\Role;
 use App\Models\Municipality;
 use App\Models\User;
@@ -25,18 +24,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Demonstração', 'uf' => 'SP', 'contact_phone' => '(00) 0000-0000',
         ]);
 
-        if ($m->flowSteps()->doesntExist()) {
-            // Exemplo de fluxo municipal; cada município define o seu em Fluxo municipal.
-            foreach ([
-                ['Comunicar Conselho Tutelar', ReferralDestination::ConselhoTutelar, 1, null, false],
-                ['Encaminhar à saúde (violência sexual)', ReferralDestination::Saude, 1, ['sexual'], false],
-                ['Acompanhamento no CREAS', ReferralDestination::Creas, 15, null, false],
-                ['Comunicar Delegacia (caso urgente)', ReferralDestination::Policia, 1, null, true],
-            ] as $i => [$name, $dest, $days, $types, $urgent]) {
-                $m->flowSteps()->create(['position' => $i + 1, 'name' => $name, 'destination' => $dest,
-                    'due_days' => $days, 'violence_types' => $types, 'only_urgent' => $urgent]);
-            }
-        }
+        // O fluxo de atendimento NÃO é semeado: cada município o cadastra em "Fluxo municipal".
 
         foreach ([
             ['Administrador Demo', 'admin@sigiep.test', Role::Administrador, null, null],

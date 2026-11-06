@@ -49,8 +49,10 @@ class MunicipiosFluxoTest extends TestCase
     private function publicPayload(array $over = []): array
     {
         return [
-            'condition' => 'vitima', 'violence_types' => ['sexual'], 'description' => 'Descrição suficiente dos fatos.',
-            'child' => ['name' => 'Joana', 'age' => 7], ...$over,
+            'child' => ['name' => 'Joana', 'birth_date' => now()->subYears(7)->toDateString(), 'birth_date_estimated' => 1],
+            'guardians' => [['name' => 'Avó', 'phone' => '1199999']],
+            'case' => ['condition' => 'vitima', 'violence_types' => ['sexual'], 'initial_report' => 'Descrição suficiente dos fatos.'],
+            ...$over,
         ];
     }
 
@@ -196,7 +198,7 @@ class MunicipiosFluxoTest extends TestCase
         $coord = $this->user(Role::Coordenacao, $m);
 
         $this->get("/denuncia/{$m->slug}")->assertOk()->assertSee('190');
-        $this->post("/denuncia/{$m->slug}", $this->publicPayload(['urgent' => 1]))->assertRedirect("/denuncia/{$m->slug}/recebida");
+        $this->post("/denuncia/{$m->slug}", $this->publicPayload(['case' => ['condition' => 'vitima', 'violence_types' => ['sexual'], 'initial_report' => 'Descrição suficiente.', 'urgent' => 1]]))->assertRedirect("/denuncia/{$m->slug}/recebida");
 
         $case = CaseRecord::firstOrFail();
         $this->assertSame('publica', $case->source);
@@ -204,6 +206,8 @@ class MunicipiosFluxoTest extends TestCase
         $this->assertTrue($case->urgent);
         $this->assertSame($m->id, $case->municipality_id);
         $this->assertSame(1, $case->referrals()->count());
+        $this->assertSame('Avó', $case->child->guardians()->first()->name);
+        $this->assertTrue($case->child->birth_date_estimated);
         $this->assertDatabaseHas('audit_logs', ['action' => AuditAction::PublicReport->value, 'case_id' => $case->id]);
         Notification::assertSentTo($coord, NovoCasoPublico::class);
 
@@ -224,7 +228,7 @@ class MunicipiosFluxoTest extends TestCase
         Notification::fake();
         $m = $this->muni();
         $this->post("/denuncia/{$m->slug}", $this->publicPayload([
-            'description' => 'SEGREDO-DA-DENUNCIA-777',
+            'case' => ['condition' => 'vitima', 'violence_types' => ['sexual'], 'initial_report' => 'SEGREDO-DA-DENUNCIA-777'],
             'ficha' => ['notificante_anonimo' => 1, 'notificante_nome' => 'Fulano', 'notificante_telefone' => '9999', 'local_ocorrencia' => 'residencia'],
         ]))->assertSessionHasNoErrors();
 
@@ -241,8 +245,8 @@ class MunicipiosFluxoTest extends TestCase
         Notification::fake();
         $m = $this->muni();
 
-        $this->post("/denuncia/{$m->slug}", $this->publicPayload(['violence_types' => [], 'description' => 'curta']))
-            ->assertSessionHasErrors(['violence_types', 'description']);
+        $this->post("/denuncia/{$m->slug}", $this->publicPayload(['case' => ['condition' => 'vitima', 'violence_types' => [], 'initial_report' => 'curta']]))
+            ->assertSessionHasErrors(['case.violence_types', 'case.initial_report']);
         $this->post("/denuncia/{$m->slug}", $this->publicPayload(['website' => 'http://spam']))->assertRedirect('/denuncia');
         $this->post("/denuncia/{$m->slug}", $this->publicPayload(['ficha' => ['zona' => 'marte']]))->assertSessionHasErrors('ficha.zona');
         $this->assertSame(0, CaseRecord::count());
@@ -439,5 +443,25 @@ class MunicipiosFluxoTest extends TestCase
         $this->user(Role::Coordenacao, $m);
         $this->artisan('sigiep:alertas')->assertSuccessful();
         Notification::assertNothingSent();
+    }
+
+    public function test_public_form_has_same_fields_as_internal_form(): void
+    {
+        $m = $this->muni();
+        $names = function (string $html): array {
+            preg_match_all('/name="([^"]+)"/', $html, $mm);
+            $n = array_map(fn ($x) => preg_replace('/\[\d+\]/', '[]', $x), $mm[1]);
+
+            return array_values(array_unique(array_filter($n, fn ($x) => ! in_array($x, ['_token', 'website']) && ! str_starts_with($x, 'ficha[notificante') && $x !== 'ficha[vinculo_notificante]')));
+        };
+
+        $public = $names($this->get("/denuncia/{$m->slug}")->getContent());
+        $psi = $this->user(Role::Psicologo, $m);
+        $internal = $names($this->actingAs($psi)->get('/casos/create')->getContent());
+
+        // Só o órgão demandante e a data de recebimento são exclusivos do interno (o servidor os define na denúncia).
+        $internalOnly = ['case[origin]', 'case[origin_document]', 'case[received_at]'];
+        $this->assertSame([], array_values(array_diff($internal, $public, $internalOnly)), 'Campo do formulário interno ausente no público');
+        $this->assertSame([], array_values(array_diff($public, $internal)), 'Campo do público ausente no interno');
     }
 }

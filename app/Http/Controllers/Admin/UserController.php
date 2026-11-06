@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AuditAction;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Municipality;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -67,6 +69,13 @@ class UserController extends Controller
         } else {
             $data['must_change_password'] = true;
         }
+        if ($request->boolean('reset_two_factor')) {
+            // Perda do celular: zera o 2FA; o usuário reconfigura no próximo login.
+            $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null,
+                'two_factor_confirmed_at' => null, 'two_factor_last_step' => null])->save();
+            AuditLog::record(AuditAction::TwoFactorAdminReset, $user);
+        }
+        unset($data['reset_two_factor']);
         $user->update($data);
 
         return redirect()->route('admin.usuarios.index')->with('ok', 'Usuário atualizado.');
@@ -83,6 +92,7 @@ class UserController extends Controller
                 'nullable', Rule::exists('municipalities', 'id')],
             'registro_profissional' => ['nullable', 'string', 'max:50'],
             'active' => ['boolean'],
+            'reset_two_factor' => ['boolean'],
         ];
     }
 

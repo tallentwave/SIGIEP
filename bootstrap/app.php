@@ -2,6 +2,7 @@
 
 use App\Enums\AuditAction;
 use App\Http\Middleware\EnsurePasswordChanged;
+use App\Http\Middleware\EnsureTwoFactor;
 use App\Models\AuditLog;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,7 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->alias(['password.changed' => EnsurePasswordChanged::class]);
+        $middleware->alias(['password.changed' => EnsurePasswordChanged::class, 'two-factor' => EnsureTwoFactor::class]);
         $middleware->redirectGuestsTo('/login');
         $middleware->redirectUsersTo('/');
     })

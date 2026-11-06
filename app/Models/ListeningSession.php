@@ -20,7 +20,6 @@ class ListeningSession extends Model
             'status' => SessionStatus::class,
             'scheduled_at' => 'datetime',
             'performed_at' => 'datetime',
-            'recorded' => 'boolean',
             'report' => 'encrypted',
             'technical_notes' => 'encrypted',
         ];

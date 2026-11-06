@@ -13,6 +13,9 @@ enum AuditAction: string
     case Updated = 'alterou';
     case Deleted = 'excluiu';
     case Denied = 'acesso_negado';
+    case Claimed = 'assumiu_caso';
+    case Exported = 'exportou';
+    case PublicReport = 'denuncia_publica';
 
     public function label(): string
     {
@@ -26,6 +29,9 @@ enum AuditAction: string
             self::Updated => 'Alterou',
             self::Deleted => 'Excluiu',
             self::Denied => 'Acesso negado',
+            self::Claimed => 'Assumiu caso',
+            self::Exported => 'Gerou relatório/PDF',
+            self::PublicReport => 'Denúncia pública recebida',
         };
     }
 }

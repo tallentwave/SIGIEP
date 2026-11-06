@@ -7,24 +7,29 @@ use App\Models\User;
 
 class CaseRecordPolicy
 {
+    private function member(User $user): bool
+    {
+        return $user->active && ! $user->isAdmin() && $user->municipality_id !== null;
+    }
+
     public function viewAny(User $user): bool
     {
-        return $user->active;
+        return $this->member($user);
     }
 
     public function create(User $user): bool
     {
-        return $user->active;
+        return $this->member($user);
     }
 
-    /** Acesso ao caso: coordenação, responsável, criador ou membro da equipe. */
     public function view(User $user, CaseRecord $case): bool
     {
-        if (! $user->active) {
+        if (! $this->member($user) || $case->municipality_id !== $user->municipality_id) {
             return false;
         }
 
         return $user->seesAllCases()
+            || $case->responsible_id === null // fila do município
             || $case->responsible_id === $user->id
             || $case->created_by === $user->id
             || $case->team()->where('users.id', $user->id)->exists();
@@ -35,15 +40,21 @@ class CaseRecordPolicy
         return $this->view($user, $case);
     }
 
-    /** Leitura do relato sigiloso: só quem faz a escuta (ou coordenação) COM acesso ao caso. */
+    /** Conteúdo sigiloso (ficha, relatos): profissional técnico ou coordenação com acesso. */
     public function readReports(User $user, CaseRecord $case): bool
     {
         return $this->view($user, $case) && ($user->isTechnical() || $user->isCoordination());
     }
 
-    /** Define equipe/responsável e encerra casos. */
+    /** Profissional técnico assume caso da fila. */
+    public function claim(User $user, CaseRecord $case): bool
+    {
+        return $this->view($user, $case) && $user->isTechnical() && $case->isInQueue();
+    }
+
+    /** Define equipe/responsável, situação e fluxo. */
     public function manage(User $user, CaseRecord $case): bool
     {
-        return $user->active && $user->isCoordination();
+        return $this->member($user) && $user->isCoordination() && $case->municipality_id === $user->municipality_id;
     }
 }

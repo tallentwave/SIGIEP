@@ -22,14 +22,13 @@ class SessionController extends Controller
         $this->authorize('update', $case);
 
         $data = $request->validate([
-            'professional_id' => ['required', Rule::exists('users', 'id')->where('active', true)
-                ->whereIn('role', [Role::Psicologo->value, Role::AssistenteSocial->value])],
+            'professional_id' => ['required', $this->professionalRule($case)],
             'scheduled_at' => ['required', 'date', 'after:now'],
             'duration_minutes' => ['required', 'integer', 'between:15,240'],
             'room' => ['nullable', 'string', 'max:100'],
         ], [], ['professional_id' => 'profissional', 'scheduled_at' => 'data/hora']);
 
-        $this->assertNoConflict($data);
+        $this->assertNoConflict($data, $case);
 
         $case->sessions()->create([...$data, 'status' => SessionStatus::Agendada]);
         if ($case->status === CaseStatus::Recebido) {
@@ -52,7 +51,7 @@ class SessionController extends Controller
             'session' => $session->load('case.child', 'professional'),
             'canRead' => $canRead,
             'statuses' => SessionStatus::cases(),
-            'professionals' => User::where('active', true)
+            'professionals' => User::where('active', true)->where('municipality_id', $session->case->municipality_id)
                 ->whereIn('role', [Role::Psicologo->value, Role::AssistenteSocial->value])->orderBy('name')->get(),
         ]);
     }
@@ -63,28 +62,23 @@ class SessionController extends Controller
         $canWrite = $request->user()->can('readReports', $session->case);
 
         $data = $request->validate([
-            'professional_id' => ['required', Rule::exists('users', 'id')->where('active', true)
-                ->whereIn('role', [Role::Psicologo->value, Role::AssistenteSocial->value])],
+            'professional_id' => ['required', $this->professionalRule($session->case)],
             'scheduled_at' => ['required', 'date'],
             'duration_minutes' => ['required', 'integer', 'between:15,240'],
             'room' => ['nullable', 'string', 'max:100'],
             'status' => ['required', Rule::enum(SessionStatus::class)],
             'accompanied_by' => ['nullable', 'string', 'max:255'],
-            'recorded' => ['boolean'],
-            'recording_location' => ['nullable', 'string', 'max:255'],
             'report' => ['nullable', 'string', 'max:50000'],
             'technical_notes' => ['nullable', 'string', 'max:50000'],
         ]);
-        $data['recorded'] = (bool) ($data['recorded'] ?? false);
 
         // Recepção agenda, mas não lê nem escreve o conteúdo da escuta.
         if (! $canWrite) {
-            unset($data['report'], $data['technical_notes'], $data['accompanied_by'],
-                $data['recorded'], $data['recording_location']);
+            unset($data['report'], $data['technical_notes'], $data['accompanied_by']);
         }
 
         if (SessionStatus::from($data['status']) === SessionStatus::Agendada) {
-            $this->assertNoConflict($data, $session);
+            $this->assertNoConflict($data, $session->case, $session);
         }
 
         if ($data['status'] === SessionStatus::Realizada->value && ! $session->performed_at) {
@@ -97,12 +91,20 @@ class SessionController extends Controller
     }
 
     /** Mesmo profissional ou mesma sala não podem ter dois atendimentos sobrepostos. */
-    private function assertNoConflict(array $data, ?ListeningSession $ignore = null): void
+    private function professionalRule(CaseRecord $case)
+    {
+        return Rule::exists('users', 'id')->where('active', true)
+            ->where('municipality_id', $case->municipality_id)
+            ->whereIn('role', [Role::Psicologo->value, Role::AssistenteSocial->value]);
+    }
+
+    private function assertNoConflict(array $data, CaseRecord $case, ?ListeningSession $ignore = null): void
     {
         $start = Carbon::parse($data['scheduled_at']);
         $end = $start->copy()->addMinutes((int) $data['duration_minutes']);
 
         $busy = ListeningSession::where('status', SessionStatus::Agendada)
+            ->whereHas('case', fn ($q) => $q->where('municipality_id', $case->municipality_id))
             ->when($ignore, fn ($q) => $q->whereKeyNot($ignore->getKey()))
             ->where(fn ($q) => $q->where('professional_id', $data['professional_id'])
                 ->when(filled($data['room'] ?? null), fn ($w) => $w->orWhere('room', $data['room'])))

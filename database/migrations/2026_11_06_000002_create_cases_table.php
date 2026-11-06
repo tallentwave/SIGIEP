@@ -11,6 +11,8 @@ return new class extends Migration
         Schema::create('cases', function (Blueprint $table) {
             $table->id();
             $table->string('protocol', 20)->unique();
+            $table->unsignedBigInteger('municipality_id')->index();
+            $table->string('source', 20)->default('interna'); // interna | publica
             $table->foreignId('child_id')->constrained();
             $table->string('condition', 20);              // vitima | testemunha
             $table->json('violence_types');
@@ -23,6 +25,8 @@ return new class extends Migration
             $table->boolean('urgent')->default(false);
             // Relato inicial do órgão demandante. Dado sensível: criptografado.
             $table->text('initial_report')->nullable();
+            // Ficha de notificação (estilo SINAN): campos estruturados, criptografados.
+            $table->longText('ficha')->nullable();
             $table->foreignId('responsible_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('closed_at')->nullable();

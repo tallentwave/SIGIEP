@@ -31,6 +31,7 @@ class AuditLog extends Model
             'subject_type' => $subject?->getMorphClass(),
             'subject_id' => $subject?->getKey(),
             'case_id' => $caseId,
+            'municipality_id' => $user?->municipality_id,
             'changes' => $changes ?: null,
             'ip' => $request?->ip(),
             'user_agent' => mb_substr((string) $request?->userAgent(), 0, 255),

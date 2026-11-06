@@ -1,12 +1,25 @@
 <?php
 
+use App\Http\Controllers\Admin\MunicipalityController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CaseController;
+use App\Http\Controllers\ChildController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\PasswordController;
+use App\Http\Controllers\PublicIntakeController;
 use App\Http\Controllers\ReferralController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SessionController;
+use App\Http\Controllers\StatsController;
 use Illuminate\Support\Facades\Route;
+
+// Canal público de denúncia (sem login).
+Route::get('/denuncia', [PublicIntakeController::class, 'index'])->name('denuncia.index');
+Route::get('/denuncia/{slug}', [PublicIntakeController::class, 'create'])->name('denuncia.create');
+Route::post('/denuncia/{slug}', [PublicIntakeController::class, 'store'])->middleware('throttle:5,1')->name('denuncia.store');
+Route::get('/denuncia/{slug}/recebida', [PublicIntakeController::class, 'received'])->name('denuncia.recebida');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -15,11 +28,34 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::get('/senha', [PasswordController::class, 'edit'])->name('senha.edit');
+    Route::put('/senha', [PasswordController::class, 'update'])->name('senha.update');
+});
+
+Route::middleware(['auth', 'password.changed'])->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
 
     Route::resource('casos', CaseController::class)
         ->parameters(['casos' => 'case'])->except('destroy');
     Route::put('casos/{case}/gestao', [CaseController::class, 'manage'])->name('casos.manage');
+    Route::post('casos/{case}/assumir', [CaseController::class, 'claim'])->name('casos.claim');
+    Route::post('casos/{case}/fluxo', [CaseController::class, 'applyFlow'])->name('casos.fluxo');
+
+    Route::get('atendidos', [ChildController::class, 'index'])->name('atendidos.index');
+    Route::get('atendidos/{child}', [ChildController::class, 'show'])->name('atendidos.show');
+
+    Route::get('relatorios/caso/{case}', [ReportController::class, 'case'])->name('relatorios.caso');
+    Route::get('estatisticas', [StatsController::class, 'index'])->name('estatisticas.index');
+    Route::get('estatisticas/pdf', [StatsController::class, 'pdf'])->name('estatisticas.pdf');
+
+    Route::prefix('admin')->name('admin.')->group(function () {
+        Route::resource('usuarios', UserController::class)->parameters(['usuarios' => 'user'])->except(['show', 'destroy']);
+        Route::resource('municipios', MunicipalityController::class)->parameters(['municipios' => 'municipality'])->except(['show', 'destroy']);
+        Route::get('municipios/{municipality}/fluxo', [MunicipalityController::class, 'flow'])->name('municipios.fluxo');
+        Route::post('municipios/{municipality}/etapas', [MunicipalityController::class, 'storeStep'])->name('municipios.etapas.store');
+        Route::put('municipios/{municipality}/etapas/{step}', [MunicipalityController::class, 'updateStep'])->name('municipios.etapas.update');
+        Route::delete('municipios/{municipality}/etapas/{step}', [MunicipalityController::class, 'destroyStep'])->name('municipios.etapas.destroy');
+    });
 
     Route::post('casos/{case}/escutas', [SessionController::class, 'store'])->name('escutas.store');
     Route::get('escutas/{session}/editar', [SessionController::class, 'edit'])->name('escutas.edit');

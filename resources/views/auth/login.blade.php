@@ -11,5 +11,6 @@
         <p class="check"><input id="remember" type="checkbox" name="remember" value="1"><label for="remember" style="margin:0">Manter conectado</label></p>
         <button>Entrar</button>
     </form>
+    <p class="muted" style="margin-top:16px">Quer denunciar uma violência? <a href="{{ route('denuncia.index') }}">Acesse o canal de denúncia</a>.</p>
 </div>
 @endsection

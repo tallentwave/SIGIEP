@@ -16,7 +16,7 @@ trait Auditable
         static::created(fn ($m) => AuditLog::record(AuditAction::Created, $m, $m->auditCaseId()));
 
         static::updated(function ($m) {
-            $fields = array_keys(array_diff_key($m->getChanges(), ['updated_at' => 1]));
+            $fields = array_keys(array_diff_key($m->getChanges(), ['updated_at' => 1, 'remember_token' => 1]));
             if ($fields) {
                 AuditLog::record(AuditAction::Updated, $m, $m->auditCaseId(), ['fields' => $fields]);
             }

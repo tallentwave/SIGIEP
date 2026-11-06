@@ -15,6 +15,7 @@ return new class extends Migration
             $table->string('action', 30)->index();
             $table->nullableMorphs('subject');
             $table->unsignedBigInteger('case_id')->nullable()->index();
+            $table->unsignedBigInteger('municipality_id')->nullable()->index();
             $table->json('changes')->nullable();       // só nomes dos campos, nunca o conteúdo sigiloso
             $table->string('ip', 45)->nullable();
             $table->string('user_agent', 255)->nullable();

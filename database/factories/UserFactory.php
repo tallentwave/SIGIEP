@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\Role;
+use App\Models\Municipality;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -33,6 +34,7 @@ class UserFactory extends Factory
             'remember_token' => Str::random(10),
             'role' => Role::Psicologo,
             'active' => true,
+            'municipality_id' => MunicipalityFactory::defaultId(),
         ];
     }
 
@@ -44,6 +46,11 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
         ]);
+    }
+
+    public function inMunicipality(Municipality|int $m): static
+    {
+        return $this->state(['municipality_id' => is_int($m) ? $m : $m->id]);
     }
 
     public function role(Role $role): static

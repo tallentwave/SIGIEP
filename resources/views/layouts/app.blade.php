@@ -43,12 +43,18 @@
 <header class="top">
     <strong>SIGIEP</strong>
     <nav>
-        <a href="{{ route('dashboard') }}">Painel</a>
-        <a href="{{ route('casos.index') }}">Casos</a>
-        <a href="{{ route('casos.create') }}">Novo caso</a>
+        @unless (auth()->user()->isAdmin())
+            <a href="{{ route('dashboard') }}">Painel</a>
+            <a href="{{ route('casos.index') }}">Casos</a>
+            <a href="{{ route('casos.create') }}">Novo caso</a>
+            <a href="{{ route('atendidos.index') }}">Atendidos</a>
+        @endunless
+        @can('viewStats') <a href="{{ route('estatisticas.index') }}">Estatísticas</a> @endcan
         @can('viewAudit') <a href="{{ route('auditoria.index') }}">Auditoria</a> @endcan
+        @if (auth()->user()->isCoordination())<a href="{{ route('admin.municipios.fluxo', auth()->user()->municipality_id) }}">Fluxo municipal</a>@endif
+        @can('admin') <a href="{{ route('admin.usuarios.index') }}">Usuários</a> <a href="{{ route('admin.municipios.index') }}">Municípios</a> @endcan
     </nav>
-    <span class="who">{{ auth()->user()->name }} · {{ auth()->user()->role->label() }}</span>
+    <span class="who"><a href="{{ route('senha.edit') }}">{{ auth()->user()->name }}</a> · {{ auth()->user()->role->label() }}{{ auth()->user()->municipality ? ' · '.auth()->user()->municipality->name : '' }}</span>
     <form method="post" action="{{ route('logout') }}">@csrf <button class="ghost">Sair</button></form>
 </header>
 @endauth

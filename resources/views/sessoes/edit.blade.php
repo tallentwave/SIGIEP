@@ -22,8 +22,6 @@
         <p class="muted">Conteúdo armazenado criptografado. Cada leitura é registrada na auditoria.</p>
         <div class="row">
             <div><label>Acompanhante da criança</label><input type="text" name="accompanied_by" value="{{ old('accompanied_by', $session->accompanied_by) }}"></div>
-            <div class="check"><input type="hidden" name="recorded" value="0"><input type="checkbox" name="recorded" value="1" @checked(old('recorded', $session->recorded))> Houve gravação audiovisual</div>
-            <div><label>Local de custódia da mídia</label><input type="text" name="recording_location" value="{{ old('recording_location', $session->recording_location) }}"></div>
         </div>
         <p><label>Relato / síntese da escuta</label><textarea name="report" style="min-height:220px">{{ old('report', $session->report) }}</textarea></p>
         <p><label>Observações técnicas (comportamento, necessidades de proteção)</label><textarea name="technical_notes">{{ old('technical_notes', $session->technical_notes) }}</textarea></p>

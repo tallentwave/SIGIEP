@@ -32,6 +32,7 @@ class CaseRecord extends Model
             'closed_at' => 'datetime',
             'urgent' => 'boolean',
             'initial_report' => 'encrypted',
+            'ficha' => 'encrypted:array',
         ];
     }
 
@@ -52,6 +53,11 @@ class CaseRecord extends Model
 
             return $prefix.str_pad((string) $seq, 5, '0', STR_PAD_LEFT);
         });
+    }
+
+    public function municipality(): BelongsTo
+    {
+        return $this->belongsTo(Municipality::class);
     }
 
     public function child(): BelongsTo
@@ -79,16 +85,34 @@ class CaseRecord extends Model
         return $this->hasMany(Referral::class, 'case_id');
     }
 
-    /** Casos que o usuário pode ver (coordenação: todos). */
+    /**
+     * Casos que o usuário pode ver:
+     *  - Administrador: nenhum (gerencia o sistema, não lê casos);
+     *  - Coordenação: todos do seu município;
+     *  - Demais: do seu município onde é responsável/criador/equipe, mais a FILA
+     *    (casos sem responsável), que podem ser assumidos.
+     */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
+        if ($user->isAdmin() || ! $user->municipality_id) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $query->where('cases.municipality_id', $user->municipality_id);
+
         if ($user->seesAllCases()) {
             return $query;
         }
 
         return $query->where(fn (Builder $q) => $q
-            ->where('responsible_id', $user->id)
-            ->orWhere('created_by', $user->id)
+            ->whereNull('cases.responsible_id')
+            ->orWhere('cases.responsible_id', $user->id)
+            ->orWhere('cases.created_by', $user->id)
             ->orWhereHas('team', fn (Builder $t) => $t->where('users.id', $user->id)));
+    }
+
+    public function isInQueue(): bool
+    {
+        return $this->responsible_id === null && $this->status !== CaseStatus::Encerrado;
     }
 }

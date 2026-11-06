@@ -1,7 +1,21 @@
 @extends('layouts.app')
 @section('title', $case->protocol)
 @section('content')
-<h1>{{ $case->protocol }} @if ($case->urgent)<span class="badge urgent">URGENTE</span>@endif <span class="badge">{{ $case->status->label() }}</span></h1>
+<h1>{{ $case->protocol }} @if ($case->urgent)<span class="badge urgent">URGENTE</span>@endif <span class="badge">{{ $case->status->label() }}</span>
+    @if ($case->source === 'publica')<span class="badge">denúncia pública</span>@endif</h1>
+<p class="muted">{{ $case->municipality->fullName() }}</p>
+@error('claim')<div class="errors">{{ $message }}</div>@enderror
+<div class="row" style="margin-bottom:14px;justify-content:flex-start">
+    @if ($canClaim)
+        <form method="post" action="{{ route('casos.claim', $case) }}" style="flex:0">@csrf <button>Assumir este caso</button></form>
+    @elseif ($case->isInQueue())
+        <span class="badge warn" style="flex:0">Na fila: sem responsável</span>
+    @endif
+    @if ($canReadReports)
+        <a class="btn ghost" style="flex:0" href="{{ route('relatorios.caso', $case) }}">Relatório do caso (PDF)</a>
+    @endif
+    <a class="btn ghost" style="flex:0" href="{{ route('atendidos.show', $case->child) }}">Histórico da criança</a>
+</div>
 
 <div class="grid wide">
 <div class="card">
@@ -33,6 +47,10 @@
         <dt>Responsável</dt><dd>{{ $case->responsible?->name ?? 'Não definido' }}</dd>
         <dt>Equipe</dt><dd>{{ $case->team->pluck('name')->implode(', ') ?: '—' }}</dd>
     </dl>
+    @if ($canReadReports && $case->ficha)
+        <h2 style="margin-top:16px">Ficha de notificação</h2>
+        @include('casos._ficha_resumo', ['ficha' => $case->ficha])
+    @endif
     @if ($canReadReports && $case->initial_report)
         <h2 style="margin-top:16px">Relato do órgão demandante</h2>
         <div class="sigilo"><pre class="report">{{ $case->initial_report }}</pre></div>
@@ -58,6 +76,11 @@
         <div><button>Salvar</button></div>
     </div>
 </form>
+<form class="card" method="post" action="{{ route('casos.fluxo', $case) }}" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    @csrf
+    <span class="muted" style="flex:1">Fluxo municipal: gera os encaminhamentos pendentes previstos para este caso (não duplica etapas já geradas).</span>
+    <button class="ghost">Aplicar fluxo do município</button>
+</form>
 @endif
 
 <div class="card">
@@ -68,7 +91,7 @@
             <tr>
                 <td>{{ $s->scheduled_at->format('d/m/Y H:i') }} <span class="muted">({{ $s->duration_minutes }} min)</span></td>
                 <td>{{ $s->professional->name }}</td><td>{{ $s->room ?? '—' }}</td>
-                <td><span class="badge">{{ $s->status->label() }}</span>@if ($s->recorded) <span class="badge">gravada</span>@endif</td>
+                <td><span class="badge">{{ $s->status->label() }}</span></td>
                 <td><a href="{{ route('escutas.edit', $s) }}">{{ $canReadReports ? 'Abrir / relatar' : 'Reagendar' }}</a></td>
             </tr>
         @empty <tr><td colspan="5" class="muted">Nenhuma escuta agendada.</td></tr> @endforelse

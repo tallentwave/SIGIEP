@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AuditAction;
+use App\Http\Middleware\EnsurePasswordChanged;
 use App\Models\AuditLog;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -15,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias(['password.changed' => EnsurePasswordChanged::class]);
         $middleware->redirectGuestsTo('/login');
         $middleware->redirectUsersTo('/');
     })

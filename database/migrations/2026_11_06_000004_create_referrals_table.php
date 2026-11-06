@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('referrals', function (Blueprint $table) {
             $table->id();
             $table->foreignId('case_id')->constrained('cases')->cascadeOnDelete();
+            $table->unsignedBigInteger('flow_step_id')->nullable()->index();
             $table->string('destination', 30);
             $table->string('destination_detail')->nullable(); // nome da unidade
             $table->string('status', 20)->default('pendente')->index();

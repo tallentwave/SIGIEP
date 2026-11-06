@@ -14,6 +14,9 @@ class DashboardController extends Controller
     public function __invoke()
     {
         $user = auth()->user();
+        if ($user->isAdmin()) {
+            return redirect()->route('admin.municipios.index');
+        }
         $cases = CaseRecord::visibleTo($user);
 
         $visibleIds = (clone $cases)->select('cases.id');
@@ -22,6 +25,7 @@ class DashboardController extends Controller
             'open' => (clone $cases)->where('status', '!=', CaseStatus::Encerrado)->count(),
             'urgent' => (clone $cases)->where('urgent', true)->where('status', '!=', CaseStatus::Encerrado)->count(),
             'awaiting' => (clone $cases)->where('status', CaseStatus::Recebido)->count(),
+            'queue' => (clone $cases)->whereNull('responsible_id')->where('status', '!=', CaseStatus::Encerrado)->count(),
             'upcoming' => ListeningSession::with('case.child', 'professional')
                 ->whereIn('case_id', $visibleIds)
                 ->where('status', SessionStatus::Agendada)

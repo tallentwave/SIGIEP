@@ -15,6 +15,8 @@ use App\Models\CaseRecord;
 use App\Models\Child;
 use App\Models\Guardian;
 use App\Models\User;
+use App\Services\FlowService;
+use App\Support\Ficha;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -40,11 +42,16 @@ class CaseController extends Controller
         return view('casos.index', ['cases' => $cases, 'statuses' => CaseStatus::cases()]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $this->authorize('create', CaseRecord::class);
 
-        return view('casos.form', $this->formData(new CaseRecord, new Child));
+        $child = new Child;
+        if ($request->filled('child')) {
+            $child = $this->accessibleChild($request->user(), $request->integer('child'));
+        }
+
+        return view('casos.form', $this->formData(new CaseRecord, $child) + ['canReadSensitive' => true]);
     }
 
     public function store(Request $request)
@@ -52,14 +59,25 @@ class CaseController extends Controller
         $this->authorize('create', CaseRecord::class);
         $data = $this->validated($request);
 
-        $case = DB::transaction(function () use ($data, $request) {
-            $child = Child::create($data['child']);
+        $user = $request->user();
+        $case = DB::transaction(function () use ($data, $request, $user) {
+            if ($request->filled('child_id')) {
+                // Novo caso para criança já atendida: atualiza o cadastro existente.
+                $child = $this->accessibleChild($user, $request->integer('child_id'));
+                $child->update($data['child']);
+            } else {
+                $child = Child::create($data['child']);
+            }
+            $child->guardians()->delete();
             foreach ($data['guardians'] as $g) {
                 $child->guardians()->create($g);
             }
 
             $case = CaseRecord::create([
                 ...$data['case'],
+                'ficha' => $data['ficha'],
+                'municipality_id' => $user->municipality_id,
+                'source' => 'interna',
                 'protocol' => CaseRecord::nextProtocol(),
                 'child_id' => $child->id,
                 'status' => CaseStatus::Recebido,
@@ -68,10 +86,12 @@ class CaseController extends Controller
                 'responsible_id' => $request->user()->isTechnical() ? $request->user()->id : null,
             ]);
 
+            app(FlowService::class)->apply($case->load('municipality'));
+
             return $case;
         });
 
-        return redirect()->route('casos.show', $case)->with('ok', "Caso {$case->protocol} cadastrado.");
+        return redirect()->route('casos.show', $case)->with('ok', "Caso {$case->protocol} cadastrado. Fluxo municipal aplicado.");
     }
 
     public function show(CaseRecord $case)
@@ -87,9 +107,11 @@ class CaseController extends Controller
             'case' => $case,
             'canReadReports' => $canReadReports,
             'canManage' => auth()->user()->can('manage', $case),
-            'professionals' => User::where('active', true)
+            'canClaim' => auth()->user()->can('claim', $case),
+            'professionals' => User::where('active', true)->where('municipality_id', $case->municipality_id)
                 ->whereIn('role', [Role::Psicologo->value, Role::AssistenteSocial->value])->orderBy('name')->get(),
-            'allUsers' => User::where('active', true)->orderBy('name')->get(),
+            'allUsers' => User::where('active', true)->where('municipality_id', $case->municipality_id)
+                ->where('role', '!=', Role::Administrador->value)->orderBy('name')->get(),
             'sessionStatuses' => SessionStatus::cases(),
             'destinations' => ReferralDestination::cases(),
             'referralStatuses' => ReferralStatus::cases(),
@@ -97,12 +119,13 @@ class CaseController extends Controller
         ]);
     }
 
-    public function edit(CaseRecord $case)
+    public function edit(Request $request, CaseRecord $case)
     {
         $this->authorize('update', $case);
         $case->load('child.guardians');
 
-        return view('casos.form', $this->formData($case, $case->child));
+        return view('casos.form', $this->formData($case, $case->child)
+            + ['canReadSensitive' => $request->user()->can('readReports', $case)]);
     }
 
     public function update(Request $request, CaseRecord $case)
@@ -110,13 +133,19 @@ class CaseController extends Controller
         $this->authorize('update', $case);
         $data = $this->validated($request);
 
-        DB::transaction(function () use ($data, $case) {
+        // Quem não lê o conteúdo sigiloso também não o sobrescreve (campos nem chegam no formulário).
+        $canRead = $request->user()->can('readReports', $case);
+        if (! $canRead) {
+            unset($data['case']['initial_report']);
+        }
+
+        DB::transaction(function () use ($data, $case, $canRead) {
             $case->child->update($data['child']);
             $case->child->guardians()->delete();
             foreach ($data['guardians'] as $g) {
                 $case->child->guardians()->create($g);
             }
-            $case->update($data['case']);
+            $case->update($canRead ? [...$data['case'], 'ficha' => $data['ficha']] : $data['case']);
         });
 
         return redirect()->route('casos.show', $case)->with('ok', 'Caso atualizado.');
@@ -128,9 +157,10 @@ class CaseController extends Controller
         $this->authorize('manage', $case);
 
         $data = $request->validate([
-            'responsible_id' => ['nullable', Rule::exists('users', 'id')->where('active', true)],
+            'responsible_id' => ['nullable', Rule::exists('users', 'id')->where('active', true)
+                ->where('municipality_id', $case->municipality_id)],
             'team' => ['array'],
-            'team.*' => [Rule::exists('users', 'id')->where('active', true)],
+            'team.*' => [Rule::exists('users', 'id')->where('active', true)->where('municipality_id', $case->municipality_id)],
             'status' => ['required', Rule::enum(CaseStatus::class)],
         ]);
 
@@ -147,6 +177,39 @@ class CaseController extends Controller
         return back()->with('ok', 'Responsável, equipe e situação atualizados.');
     }
 
+    /** Profissional técnico assume um caso da fila do município. */
+    public function claim(Request $request, CaseRecord $case)
+    {
+        $this->authorize('claim', $case);
+
+        // Atualização condicional evita que dois profissionais assumam o mesmo caso.
+        $won = CaseRecord::whereKey($case->id)->whereNull('responsible_id')
+            ->update(['responsible_id' => $request->user()->id]);
+
+        if (! $won) {
+            return back()->withErrors(['claim' => 'Outro profissional já assumiu este caso.']);
+        }
+        AuditLog::record(AuditAction::Claimed, $case, $case->id);
+
+        return back()->with('ok', 'Você assumiu o caso.');
+    }
+
+    /** Coordenação: (re)aplica o fluxo municipal sem duplicar etapas. */
+    public function applyFlow(CaseRecord $case)
+    {
+        $this->authorize('manage', $case);
+        $n = app(FlowService::class)->apply($case);
+
+        return back()->with('ok', $n ? "{$n} encaminhamento(s) gerado(s) pelo fluxo." : 'Fluxo já aplicado: nenhuma etapa nova.');
+    }
+
+    private function accessibleChild(User $user, int $id): Child
+    {
+        abort_unless(CaseRecord::visibleTo($user)->where('child_id', $id)->exists(), 403);
+
+        return Child::findOrFail($id);
+    }
+
     private function formData(CaseRecord $case, Child $child): array
     {
         return [
@@ -155,6 +218,7 @@ class CaseController extends Controller
             'guardians' => $child->exists ? $child->guardians : collect([new Guardian]),
             'conditions' => Condition::cases(),
             'violenceTypes' => ViolenceType::cases(),
+            'ficha' => $case->ficha ?? [],
         ];
     }
 
@@ -191,6 +255,8 @@ class CaseController extends Controller
             'case.alleged_author' => ['nullable', 'string', 'max:255'],
             'case.urgent' => ['boolean'],
             'case.initial_report' => ['nullable', 'string', 'max:20000'],
+            'child_id' => ['nullable', 'integer'],
+            ...Ficha::rules('ficha'),
         ], [], [
             'child.name' => 'nome da criança/adolescente',
             'child.birth_date' => 'data de nascimento',
@@ -210,6 +276,7 @@ class CaseController extends Controller
         $v['child']['birth_date_estimated'] = (bool) ($v['child']['birth_date_estimated'] ?? false);
         $v['child']['has_disability'] = (bool) ($v['child']['has_disability'] ?? false);
         $v['case']['urgent'] = (bool) ($v['case']['urgent'] ?? false);
+        $v['ficha'] = Ficha::clean($v['ficha'] ?? []);
 
         return $v;
     }

@@ -6,6 +6,7 @@
     <div class="card stat"><b>{{ $open }}</b><span class="muted">casos em andamento</span></div>
     <div class="card stat"><b style="color:var(--bad)">{{ $urgent }}</b><span class="muted">casos urgentes</span></div>
     <div class="card stat"><b>{{ $awaiting }}</b><span class="muted">aguardando 1ª escuta</span></div>
+    <div class="card stat"><b style="color:var(--warn)">{{ $queue }}</b><span class="muted">na fila (sem responsável)</span></div>
 </div>
 <div class="grid wide">
     <div class="card">

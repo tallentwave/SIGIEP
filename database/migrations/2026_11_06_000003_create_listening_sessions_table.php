@@ -17,8 +17,6 @@ return new class extends Migration
             $table->string('room')->nullable();
             $table->string('status', 20)->default('agendada')->index();
             $table->string('accompanied_by')->nullable();   // quem acompanhou a criança
-            $table->boolean('recorded')->default(false);    // houve gravação audiovisual?
-            $table->string('recording_location')->nullable(); // onde a mídia está custodiada
             // Sigilo: relato e observações técnicas criptografados.
             $table->text('report')->nullable();
             $table->text('technical_notes')->nullable();

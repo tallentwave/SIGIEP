@@ -20,6 +20,8 @@ return new class extends Migration
             $table->string('role')->default('recepcao');
             $table->string('registro_profissional')->nullable(); // CRP / CRESS
             $table->boolean('active')->default(true);
+            $table->unsignedBigInteger('municipality_id')->nullable()->index();
+            $table->boolean('must_change_password')->default(false);
             $table->rememberToken();
             $table->timestamps();
         });

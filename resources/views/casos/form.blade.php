@@ -5,6 +5,10 @@
 <h1>{{ $editing ? 'Editar caso '.$case->protocol : 'Novo caso' }}</h1>
 <form method="post" action="{{ $editing ? route('casos.update', $case) : route('casos.store') }}">
     @csrf @if ($editing) @method('PUT') @endif
+    @if ($child->exists && ! $editing)
+        <input type="hidden" name="child_id" value="{{ $child->id }}">
+        <div class="flash">Novo caso para criança/adolescente já atendido(a): <strong>{{ $child->displayName() }}</strong>. O histórico fica vinculado ao mesmo cadastro.</div>
+    @endif
 
     <div class="card">
         <h2>Criança / adolescente</h2>
@@ -64,11 +68,19 @@
             @endforeach
         </p>
         <div class="check"><input type="hidden" name="case[urgent]" value="0"><input type="checkbox" name="case[urgent]" value="1" @checked(old('case.urgent', $case->urgent))> <strong>Caso urgente</strong> (risco iminente)</div>
+        @if ($canReadSensitive)
         <p><label>Relato inicial do órgão demandante (sigiloso, armazenado criptografado)</label>
             <textarea name="case[initial_report]">{{ old('case.initial_report', $case->initial_report) }}</textarea>
         </p>
+        @endif
         <p class="muted">Lei 13.431/2017: registre apenas o necessário. A criança não deve ser questionada sobre o fato antes da escuta especializada; evite revitimização.</p>
     </div>
+
+    @if ($canReadSensitive)
+        @include('casos._ficha', ['ficha' => $ficha])
+    @else
+        <div class="card muted">Seu perfil não acessa a ficha de notificação nem o relato inicial deste caso.</div>
+    @endif
 
     <button>{{ $editing ? 'Salvar alterações' : 'Cadastrar caso' }}</button>
     <a class="btn ghost" href="{{ $editing ? route('casos.show', $case) : route('casos.index') }}">Cancelar</a>

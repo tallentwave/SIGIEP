@@ -11,6 +11,7 @@ use App\Models\CaseRecord;
 use App\Models\Child;
 use App\Models\ListeningSession;
 use App\Models\User;
+use Database\Factories\MunicipalityFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -30,6 +31,7 @@ class EscutaTest extends TestCase
 
         return CaseRecord::create([
             'protocol' => CaseRecord::nextProtocol(), 'child_id' => $child->id,
+            'municipality_id' => MunicipalityFactory::defaultId(),
             'condition' => 'vitima', 'violence_types' => ['sexual'], 'origin' => 'Conselho Tutelar',
             'received_at' => now(), 'status' => CaseStatus::Recebido,
             'initial_report' => 'RELATO-SIGILOSO-ABC', 'created_by' => $creator?->id, ...$attrs,
@@ -90,7 +92,7 @@ class EscutaTest extends TestCase
 
     public function test_user_without_access_cannot_view_case_and_denial_is_audited(): void
     {
-        $case = $this->makeCase();
+        $case = $this->makeCase(null, ['responsible_id' => $this->user(Role::Psicologo)->id]);
         $outsider = $this->user(Role::Psicologo);
 
         $this->actingAs($outsider)->get("/casos/{$case->id}")->assertForbidden();
@@ -102,7 +104,7 @@ class EscutaTest extends TestCase
     {
         $mine = $this->user(Role::Psicologo);
         $visible = $this->makeCase(null, ['responsible_id' => $mine->id]);
-        $hidden = $this->makeCase();
+        $hidden = $this->makeCase(null, ['responsible_id' => $this->user(Role::Psicologo)->id]);
 
         $this->actingAs($mine)->get('/casos')->assertSee($visible->protocol)->assertDontSee($hidden->protocol);
         $this->actingAs($this->user(Role::Coordenacao))->get('/casos')->assertSee($visible->protocol)->assertSee($hidden->protocol);

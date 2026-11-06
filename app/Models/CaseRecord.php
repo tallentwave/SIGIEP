@@ -31,6 +31,9 @@ class CaseRecord extends Model
             'violence_date' => 'date',
             'closed_at' => 'datetime',
             'urgent' => 'boolean',
+            'legal_hold' => 'boolean',
+            'legal_hold_at' => 'datetime',
+            'anonymized_at' => 'datetime',
             'initial_report' => 'encrypted',
             'ficha' => 'encrypted:array',
         ];
@@ -73,6 +76,21 @@ class CaseRecord extends Model
     public function team(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'case_user', 'case_id', 'user_id')->withTimestamps();
+    }
+
+    public function processes(): HasMany
+    {
+        return $this->hasMany(JudicialProcess::class, 'case_id');
+    }
+
+    public function dispatches(): HasMany
+    {
+        return $this->hasMany(IntegrationDispatch::class, 'case_id');
+    }
+
+    public function isAnonymized(): bool
+    {
+        return $this->anonymized_at !== null;
     }
 
     public function sessions(): HasMany

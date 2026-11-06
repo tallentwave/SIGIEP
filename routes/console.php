@@ -9,3 +9,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('sigiep:alertas')->dailyAt('07:30')->withoutOverlapping();
+// Anonimização é irreversível: só agenda quando habilitada explicitamente.
+if (config('sigiep.retention.auto')) {
+    Schedule::command('sigiep:retencao')->monthlyOn(1, '03:00')->withoutOverlapping();
+}

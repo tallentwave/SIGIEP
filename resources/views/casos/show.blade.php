@@ -4,6 +4,13 @@
 <h1>{{ $case->protocol }} @if ($case->urgent)<span class="badge urgent">URGENTE</span>@endif <span class="badge">{{ $case->status->label() }}</span>
     @if ($case->source === 'publica')<span class="badge">denúncia pública</span>@endif</h1>
 <p class="muted">{{ $case->municipality->fullName() }}</p>
+@if ($case->isAnonymized())
+    <div class="errors" style="border-color:var(--warn);color:var(--warn)"><strong>Caso anonimizado em {{ $case->anonymized_at->format('d/m/Y') }}</strong>
+        ({{ ['prazo' => 'prazo de retenção', 'manual' => 'decisão da coordenação', 'exclusao' => 'exclusão'][$case->anonymization_reason] ?? '' }}).
+        Dados pessoais e relatos foram removidos de forma irreversível; permanecem apenas informações estatísticas. O registro é somente leitura.</div>
+@elseif ($case->legal_hold)
+    <div class="errors" style="border-color:var(--warn);color:var(--warn)"><strong>Guarda legal ativa:</strong> {{ $case->legal_hold_reason }}. O caso não será anonimizado enquanto durar.</div>
+@endif
 @error('claim')<div class="errors">{{ $message }}</div>@enderror
 <div class="row" style="margin-bottom:14px;justify-content:flex-start">
     @if ($canClaim)
@@ -19,7 +26,7 @@
 
 <div class="grid wide">
 <div class="card">
-    <h2>Criança / adolescente <a class="btn ghost" style="float:right;padding:2px 10px" href="{{ route('casos.edit', $case) }}">Editar</a></h2>
+    <h2>Criança / adolescente @unless ($case->isAnonymized())<a class="btn ghost" style="float:right;padding:2px 10px" href="{{ route('casos.edit', $case) }}">Editar</a>@endunless</h2>
     <dl>
         <dt>Nome</dt><dd>{{ $case->child->name }}@if ($case->child->social_name) ({{ $case->child->social_name }})@endif</dd>
         <dt>Nascimento</dt><dd>{{ $case->child->birth_date?->format('d/m/Y') ?? '—' }}@if ($case->child->age !== null) · {{ $case->child->age }} anos{{ $case->child->birth_date_estimated ? ' (estimada)' : '' }}@endif</dd>
@@ -96,6 +103,7 @@
             </tr>
         @empty <tr><td colspan="5" class="muted">Nenhuma escuta agendada.</td></tr> @endforelse
     </table>
+    @unless ($case->isAnonymized())
     <form method="post" action="{{ route('escutas.store', $case) }}" style="margin-top:14px">
         @csrf
         <h2>Agendar escuta</h2>
@@ -108,6 +116,7 @@
             <div><button>Agendar</button></div>
         </div>
     </form>
+    @endunless
 </div>
 
 <div class="card">
@@ -129,6 +138,7 @@
             </tr>
         @empty <tr><td colspan="4" class="muted">Nenhum encaminhamento registrado.</td></tr> @endforelse
     </table>
+    @unless ($case->isAnonymized())
     <form method="post" action="{{ route('encaminhamentos.store', $case) }}" style="margin-top:14px">
         @csrf
         <h2>Novo encaminhamento</h2>
@@ -142,5 +152,13 @@
         <p><label>Resumo do encaminhamento (sigiloso)</label><textarea name="summary" style="min-height:70px"></textarea></p>
         <button>Registrar</button>
     </form>
+    @endunless
 </div>
+
+@if ($canReadReports && ! $case->isAnonymized())
+    @include('casos._integracoes')
+@endif
+@if ($canManage)
+    @include('casos._retencao')
+@endif
 @endsection

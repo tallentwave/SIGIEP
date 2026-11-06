@@ -35,9 +35,10 @@ class CaseRecordPolicy
             || $case->team()->where('users.id', $user->id)->exists();
     }
 
+    /** Caso anonimizado é somente leitura (só estatística). */
     public function update(User $user, CaseRecord $case): bool
     {
-        return $this->view($user, $case);
+        return ! $case->isAnonymized() && $this->view($user, $case);
     }
 
     /** Conteúdo sigiloso (ficha, relatos): profissional técnico ou coordenação com acesso. */
@@ -55,6 +56,13 @@ class CaseRecordPolicy
     /** Define equipe/responsável, situação e fluxo. */
     public function manage(User $user, CaseRecord $case): bool
     {
-        return $this->member($user) && $user->isCoordination() && $case->municipality_id === $user->municipality_id;
+        return ! $case->isAnonymized() && $this->member($user) && $user->isCoordination()
+            && $case->municipality_id === $user->municipality_id;
+    }
+
+    /** Guarda legal e anonimização manual: coordenação do município, caso ainda não anonimizado. */
+    public function retain(User $user, CaseRecord $case): bool
+    {
+        return $this->manage($user, $case);
     }
 }

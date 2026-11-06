@@ -23,6 +23,13 @@ enum AuditAction: string
     case TwoFactorFailed = '2fa_falhou';
     case TwoFactorRecoveryUsed = '2fa_codigo_recuperacao';
     case TwoFactorAdminReset = '2fa_redefinido_admin';
+    case Anonymized = 'anonimizou';
+    case LegalHoldSet = 'guarda_legal_aplicada';
+    case LegalHoldLifted = 'guarda_legal_retirada';
+    case AuditPruned = 'auditoria_expurgada';
+    case IntegrationGenerated = 'integracao_gerada';
+    case IntegrationConfirmed = 'integracao_confirmada';
+    case IntegrationWaived = 'integracao_dispensada';
 
     public function label(): string
     {
@@ -46,6 +53,13 @@ enum AuditAction: string
             self::TwoFactorFailed => 'Falha no 2FA',
             self::TwoFactorRecoveryUsed => 'Código de recuperação usado',
             self::TwoFactorAdminReset => '2FA redefinido pelo admin',
+            self::Anonymized => 'Caso anonimizado',
+            self::LegalHoldSet => 'Guarda legal aplicada',
+            self::LegalHoldLifted => 'Guarda legal retirada',
+            self::AuditPruned => 'Trilha de auditoria expurgada',
+            self::IntegrationGenerated => 'Arquivo/documento de integração gerado',
+            self::IntegrationConfirmed => 'Integração confirmada',
+            self::IntegrationWaived => 'Integração dispensada',
         };
     }
 }

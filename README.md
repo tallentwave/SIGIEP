@@ -19,6 +19,25 @@ vítimas ou testemunhas de violência (Lei 13.431/2017). Laravel 13 · PHP 8.3 �
 | **Segurança da conta** | Recuperação de senha por e-mail (link de 60 min, uso único, resposta idêntica exista o e-mail ou não, derruba sessões abertas) e **2FA por aplicativo autenticador** (TOTP) com códigos de recuperação. Obrigatório para Administrador, Coordenação, Psicólogo e Assistente Social; opcional para Recepção |
 | **Auditoria** | Login/falhas, leitura de caso e relato, alterações (só nomes dos campos), exportações, acessos negados, denúncias públicas |
 
+| **Retenção e anonimização** | Prazo de guarda por município (padrão provisório de 10 anos após o encerramento), **guarda legal** que suspende a anonimização, anonimização irreversível automática (opt-in) ou manual, e expurgo da trilha de auditoria antiga. Mantém só o estatístico |
+| **SINAN** | Gera arquivo (CSV, UTF-8) com os **nomes de campo e códigos oficiais** da ficha de Violência Interpessoal/Autoprovocada (dicionário SINAN NET v5.1), prazo interno de notificação, avisos do que foi enviado como "Ignorado" e controle do nº de notificação devolvido |
+| **Sistema de Justiça** | Processos vinculados ao caso com **validação do dígito verificador** (numeração única CNJ, Res. 65/2008) e comunicação ao Juízo em PDF com o mínimo necessário (sem o relato da escuta) |
+
+### O que as integrações fazem — e o que não fazem
+
+- **SINAN não tem API pública de envio.** A notificação é digitada/importada pela vigilância epidemiológica do município. O SIGIEP gera o arquivo mapeado para os campos oficiais; **a vigilância precisa conferir e carregar** (o CSV não é o arquivo de transferência nativo do SINAN NET). Campos sem dado na ficha saem como `9 – Ignorado` e aparecem como aviso. Verifique com a vigilância: o nome do campo `REL_IRMAO` (o dicionário imprime com til) e o agrupamento "cônjuge/namorado(a)" da ficha, que o SINAN separa em quatro categorias.
+- **CNJ/MNI não está ligado.** O Modelo Nacional de Interoperabilidade é um webservice por tribunal e exige adesão/credenciais (convênio). Sem isso não há como enviar, então o sistema **não finge** uma conexão: valida e registra o processo, gera o documento e controla o nº do ofício/protocolo. Quando um tribunal aderir, a integração entra sobre esses mesmos registros.
+- Nenhum conteúdo gerado é guardado: só o *hash* e o status (o resumo ao Juízo é criptografado).
+
+### Retenção: como operar
+
+```bash
+php artisan sigiep:retencao --dry-run   # simula, não altera nada
+php artisan sigiep:retencao             # anonimiza o que venceu e expurga auditoria antiga
+```
+
+A execução automática (dia 1º, 03:00) só existe com `SIGIEP_RETENTION_AUTO=true`, porque a anonimização **não tem volta**. Prazos: `retention_years` em *Municípios* e `SIGIEP_AUDIT_RETENTION_YEARS` (padrão 5; 0 = nunca expurgar). **Valide os prazos com a assessoria jurídica e o encarregado (DPO)**: o padrão é provisório.
+
 ## Quem vê o quê
 
 | Perfil | Casos | Conteúdo sigiloso (ficha, relatos) | Outros |
@@ -59,7 +78,9 @@ Usuários demo: `coordenacao@`, `psicologo@`, `social@`, `recepcao@` + `sigiep.t
 - 2FA: o padrão já é seguro; **não** defina `SIGIEP_2FA_REQUIRED` em produção. Quem perder o celular e os códigos pede ao administrador (Usuários → Editar → Redefinir 2FA).
 - Revisar o fluxo de cada município em *Fluxo municipal* antes de abrir o canal público.
 
+- Defina por município o código IBGE e a unidade notificadora do SINAN (*Municípios*), e combine com a vigilância epidemiológica o formato de carga.
+- Teste `sigiep:retencao --dry-run` antes de ligar `SIGIEP_RETENTION_AUTO`.
+
 ## Pendente / próximos passos
 
-Política de retenção/anonimização (LGPD),
-integração SINAN/CNJ, consulta de andamento pelo denunciante (hoje deliberadamente inexistente por sigilo).
+Adesão ao MNI/CNJ por tribunal, carga direta no SINAN (se a vigilância fornecer o layout de transferência), consulta de andamento pelo denunciante (hoje deliberadamente inexistente por sigilo).

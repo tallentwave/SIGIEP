@@ -30,6 +30,10 @@ class AlertasDiarios extends Notification
             $m->line('Casos aguardando responsável há mais tempo que o limite: '.implode(', ', $this->dados['fila']));
         }
 
+        if ($this->dados['sinan'] ?? []) {
+            $m->line('Notificação ao SINAN com prazo vencido: '.implode(', ', $this->dados['sinan']));
+        }
+
         return $m->action('Abrir o SIGIEP', route('dashboard'));
     }
 }

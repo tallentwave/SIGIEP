@@ -12,6 +12,7 @@ use App\Models\Municipality;
 use App\Models\Referral;
 use App\Models\User;
 use App\Notifications\AlertasDiarios;
+use App\Services\SinanExporter;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -38,7 +39,11 @@ class EnviarAlertas extends Command
             $fila = (clone $cases)->whereNull('responsible_id')->where('status', '!=', CaseStatus::Encerrado)
                 ->whereDate('received_at', '<=', now()->subDays((int) $this->option('dias-fila')))->get();
 
-            if ($atrasados->isEmpty() && $sessions->isEmpty() && $fila->isEmpty()) {
+            $sinan = (clone $cases)->where('condition', 'vitima')->whereNull('anonymized_at')
+                ->whereDoesntHave('dispatches', fn ($q) => $q->where('system', 'sinan')->whereIn('status', ['concluido', 'dispensado']))
+                ->get()->filter(fn ($c) => SinanExporter::deadline($c)->isPast());
+
+            if ($atrasados->isEmpty() && $sessions->isEmpty() && $fila->isEmpty() && $sinan->isEmpty()) {
                 continue;
             }
 
@@ -46,6 +51,7 @@ class EnviarAlertas extends Command
                 'atrasados' => $atrasados->pluck('case.protocol')->unique()->values()->all(),
                 'escutas' => $sessions->pluck('case.protocol')->unique()->values()->all(),
                 'fila' => $fila->pluck('protocol')->all(),
+                'sinan' => $sinan->pluck('protocol')->all(),
             ];
 
             // Coordenação recebe tudo; profissionais, só o que é dos seus casos.

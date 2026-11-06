@@ -121,6 +121,10 @@ class MunicipalityController extends Controller
             'uf' => ['required', 'string', 'size:2'],
             'ibge_code' => ['nullable', 'digits:7', Rule::unique('municipalities', 'ibge_code')->ignore($m?->id)],
             'contact_phone' => ['nullable', 'string', 'max:30'],
+            'retention_years' => ['required', 'integer', 'between:1,50'],
+            'sinan_unit_type' => ['required', 'integer', 'between:1,7'],
+            'sinan_unit_name' => ['nullable', 'string', 'max:255'],
+            'sinan_unit_code' => ['nullable', 'string', 'max:20'],
             'active' => ['boolean'],
             'accepts_public_reports' => ['boolean'],
         ]);

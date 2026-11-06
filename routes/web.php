@@ -7,11 +7,13 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CaseController;
 use App\Http\Controllers\ChildController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PublicIntakeController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RetentionController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\TwoFactorController;
@@ -62,6 +64,19 @@ Route::middleware(['auth', 'two-factor', 'password.changed'])->group(function ()
 
     Route::get('atendidos', [ChildController::class, 'index'])->name('atendidos.index');
     Route::get('atendidos/{child}', [ChildController::class, 'show'])->name('atendidos.show');
+
+    Route::get('retencao', [RetentionController::class, 'index'])->name('retencao.index');
+    Route::post('casos/{case}/guarda-legal', [RetentionController::class, 'hold'])->name('retencao.hold');
+    Route::post('casos/{case}/anonimizar', [RetentionController::class, 'anonymize'])->name('retencao.anonymize');
+
+    Route::get('integracoes', [IntegrationController::class, 'index'])->name('integracoes.index');
+    Route::post('integracoes/sinan/arquivo', [IntegrationController::class, 'sinanFile'])->name('integracoes.sinan.file');
+    Route::get('casos/{case}/sinan/previa', [IntegrationController::class, 'sinanPreview'])->name('integracoes.sinan.preview');
+    Route::post('casos/{case}/sinan/dispensar', [IntegrationController::class, 'sinanWaive'])->name('integracoes.sinan.waive');
+    Route::post('integracoes/{dispatch}/concluir', [IntegrationController::class, 'confirm'])->name('integracoes.confirm');
+    Route::post('casos/{case}/processos', [IntegrationController::class, 'storeProcess'])->name('integracoes.processos.store');
+    Route::delete('processos/{process}', [IntegrationController::class, 'destroyProcess'])->name('integracoes.processos.destroy');
+    Route::post('casos/{case}/justica/comunicacao', [IntegrationController::class, 'justicePdf'])->name('integracoes.justica.pdf');
 
     Route::get('relatorios/caso/{case}', [ReportController::class, 'case'])->name('relatorios.caso');
     Route::get('estatisticas', [StatsController::class, 'index'])->name('estatisticas.index');

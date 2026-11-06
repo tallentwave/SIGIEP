@@ -21,6 +21,7 @@ class Child extends Model
             'birth_date' => 'date',
             'birth_date_estimated' => 'boolean',
             'has_disability' => 'boolean',
+            'anonymized_at' => 'datetime',
         ];
     }
 

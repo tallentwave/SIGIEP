@@ -66,7 +66,8 @@ class StatsController extends Controller
             foreach ($c->violence_types ?? [] as $t) {
                 $byType[$t] = ($byType[$t] ?? 0) + 1;
             }
-            $age = $c->child->birth_date?->diffInYears($c->received_at);
+            // Carbon 3 devolve decimal: sem o floor, 5,5 anos cairia na faixa 6–11.
+            $age = $c->child->birth_date ? (int) floor(abs($c->child->birth_date->diffInYears($c->received_at))) : null;
             $byAge[match (true) {
                 $age === null => 'Não informada', $age <= 5 => '0–5', $age <= 11 => '6–11', $age <= 14 => '12–14', default => '15–17',
             }]++;

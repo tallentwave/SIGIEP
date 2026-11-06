@@ -1,0 +1,94 @@
+<?php
+
+namespace App\Models;
+
+use App\Enums\CaseStatus;
+use App\Enums\Condition;
+use App\Models\Concerns\Auditable;
+use Illuminate\Database\Eloquent\Attributes\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
+
+#[Table('cases')]
+class CaseRecord extends Model
+{
+    use Auditable, SoftDeletes;
+
+    protected $guarded = [];
+
+    protected function casts(): array
+    {
+        return [
+            'status' => CaseStatus::class,
+            'condition' => Condition::class,
+            'violence_types' => 'array',
+            'received_at' => 'date',
+            'violence_date' => 'date',
+            'closed_at' => 'datetime',
+            'urgent' => 'boolean',
+            'initial_report' => 'encrypted',
+        ];
+    }
+
+    public function auditCaseId(): ?int
+    {
+        return $this->getKey();
+    }
+
+    /** Protocolo sequencial por ano: SIG-2026-00001. */
+    public static function nextProtocol(): string
+    {
+        return DB::transaction(function () {
+            $year = now()->year;
+            $prefix = "SIG-{$year}-";
+            $last = static::withTrashed()->where('protocol', 'like', $prefix.'%')
+                ->lockForUpdate()->max('protocol');
+            $seq = $last ? ((int) substr($last, -5)) + 1 : 1;
+
+            return $prefix.str_pad((string) $seq, 5, '0', STR_PAD_LEFT);
+        });
+    }
+
+    public function child(): BelongsTo
+    {
+        return $this->belongsTo(Child::class);
+    }
+
+    public function responsible(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'responsible_id');
+    }
+
+    public function team(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'case_user', 'case_id', 'user_id')->withTimestamps();
+    }
+
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(ListeningSession::class, 'case_id');
+    }
+
+    public function referrals(): HasMany
+    {
+        return $this->hasMany(Referral::class, 'case_id');
+    }
+
+    /** Casos que o usuário pode ver (coordenação: todos). */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->seesAllCases()) {
+            return $query;
+        }
+
+        return $query->where(fn (Builder $q) => $q
+            ->where('responsible_id', $user->id)
+            ->orWhere('created_by', $user->id)
+            ->orWhereHas('team', fn (Builder $t) => $t->where('users.id', $user->id)));
+    }
+}

@@ -13,6 +13,7 @@ use App\Services\SinanExporter;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -228,7 +229,7 @@ class EndurecimentoPrazosTest extends TestCase
         $a = $this->muni();
         $b = $this->muni();
         $coord = $this->user(Role::Coordenacao, $a);
-        $body = ['sinan_deadline_sexual_days' => 0, 'sinan_deadline_default_days' => 5, 'queue_alert_days' => 2];
+        $body = ['sinan_deadline_sexual_days' => 0, 'sinan_deadline_default_days' => 5, 'queue_alert_days' => 2, 'first_listening_days' => 4];
 
         $this->actingAs($coord)->get("/admin/municipios/{$a->id}/prazos")->assertOk()->assertSee('notificação imediata');
         $this->get("/admin/municipios/{$b->id}/prazos")->assertForbidden();
@@ -240,7 +241,7 @@ class EndurecimentoPrazosTest extends TestCase
 
         $this->put("/admin/municipios/{$a->id}/prazos", $body)->assertSessionHasNoErrors();
         $a->refresh();
-        $this->assertSame([0, 5, 2], [$a->sinan_deadline_sexual_days, $a->sinan_deadline_default_days, $a->queue_alert_days]);
+        $this->assertSame([0, 5, 2, 4], [$a->sinan_deadline_sexual_days, $a->sinan_deadline_default_days, $a->queue_alert_days, $a->first_listening_days]);
         $this->assertSame([1, 7, 3], [$b->fresh()->sinan_deadline_sexual_days, $b->fresh()->sinan_deadline_default_days, $b->fresh()->queue_alert_days]);
         $this->assertDatabaseHas('audit_logs', ['user_id' => $coord->id, 'action' => 'alterou', 'subject_type' => (new Municipality)->getMorphClass(), 'subject_id' => $a->id]);
     }
@@ -248,7 +249,7 @@ class EndurecimentoPrazosTest extends TestCase
     public function test_other_profiles_cannot_change_deadlines_but_admin_can(): void
     {
         $m = $this->muni();
-        $body = ['sinan_deadline_sexual_days' => 1, 'sinan_deadline_default_days' => 3, 'queue_alert_days' => 1];
+        $body = ['sinan_deadline_sexual_days' => 1, 'sinan_deadline_default_days' => 3, 'queue_alert_days' => 1, 'first_listening_days' => 4];
 
         foreach ([Role::Psicologo, Role::AssistenteSocial, Role::Recepcao] as $role) {
             $this->actingAs($this->user($role, $m))->put("/admin/municipios/{$m->id}/prazos", $body)->assertForbidden();
@@ -287,5 +288,84 @@ class EndurecimentoPrazosTest extends TestCase
 
         Notification::assertSentTo($coordQuick, AlertasDiarios::class, fn ($n) => $n->dados['fila'] === [$a->protocol]);
         Notification::assertNotSentTo($coordSlow, AlertasDiarios::class);
+    }
+
+    // ===================== config:cache e proxies =====================
+
+    public function test_env_is_never_called_outside_config_files(): void
+    {
+        // Com `config:cache`, env() fora de config/ devolve NULL e a configuração some em silêncio.
+        $offenders = [];
+        foreach (['app', 'bootstrap', 'routes', 'database'] as $dir) {
+            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path($dir), \FilesystemIterator::SKIP_DOTS));
+            foreach ($it as $f) {
+                if ($f->getExtension() === 'php' && ! str_contains($f->getPathname(), '/bootstrap/cache/')
+                    && preg_match('/\benv\(/', file_get_contents($f->getPathname()))) {
+                    $offenders[] = str_replace(base_path().'/', '', $f->getPathname());
+                }
+            }
+        }
+        $this->assertSame([], $offenders, 'env() só pode ser usado em config/');
+    }
+
+    public function test_forwarded_ip_is_used_only_from_trusted_proxies(): void
+    {
+        User::factory()->create(['email' => 'a@x.com']);
+        $post = fn () => $this->withServerVariables(['REMOTE_ADDR' => '10.1.1.1'])->withHeaders(['X-Forwarded-For' => '203.0.113.9'])
+            ->post('/login', ['email' => 'a@x.com', 'password' => 'errada']);
+
+        $post();
+        $this->assertDatabaseHas('audit_logs', ['action' => 'login_falhou', 'ip' => '10.1.1.1']); // sem confiar: IP do proxy
+
+        config(['trustedproxy.proxies' => '10.0.0.0/8']);
+        $post();
+        $this->assertDatabaseHas('audit_logs', ['action' => 'login_falhou', 'ip' => '203.0.113.9']); // proxy confiável: IP real
+    }
+
+    // ===================== primeiro administrador =====================
+
+    public function test_create_admin_command_creates_a_forced_password_change_account(): void
+    {
+        $this->artisan('sigiep:criar-admin Admin@Orgao.gov.br --nome="Fulana de Tal"')
+            ->expectsQuestion('Senha (não aparece na tela)', 'SenhaInicial123')
+            ->expectsQuestion('Repita a senha', 'SenhaInicial123')
+            ->expectsOutputToContain('criado')
+            ->assertSuccessful();
+
+        $u = User::where('email', 'admin@orgao.gov.br')->firstOrFail();
+        $this->assertSame(Role::Administrador, $u->role);
+        $this->assertNull($u->municipality_id);
+        $this->assertTrue($u->must_change_password && $u->active);
+        $this->assertTrue(Hash::check('SenhaInicial123', $u->password));
+        config(['sigiep.two_factor_required_roles' => ['administrador']]); // a base de testes desliga o 2FA
+        $this->assertTrue($u->requiresTwoFactor());
+    }
+
+    public function test_create_admin_command_rejects_weak_mismatched_and_duplicate(): void
+    {
+        $this->artisan('sigiep:criar-admin a@b.com --nome=X')->expectsQuestion('Senha (não aparece na tela)', 'curta')
+            ->expectsQuestion('Repita a senha', 'curta')->expectsOutputToContain('Senha fraca')->assertFailed();
+        $this->artisan('sigiep:criar-admin a@b.com --nome=X')->expectsQuestion('Senha (não aparece na tela)', 'SenhaInicial123')
+            ->expectsQuestion('Repita a senha', 'OutraSenha456')->expectsOutputToContain('não conferem')->assertFailed();
+        $this->assertSame(0, User::where('email', 'a@b.com')->count());
+
+        User::factory()->create(['email' => 'dup@b.com']);
+        $this->artisan('sigiep:criar-admin dup@b.com --nome=X')->expectsOutputToContain('Já existe')->assertFailed();
+        $this->artisan('sigiep:criar-admin nao-e-email --nome=X')->assertFailed();
+    }
+
+    public function test_verificar_warns_about_placeholder_mail_sender_without_failing(): void
+    {
+        config(['mail.from.address' => 'hello@example.com', 'app.debug' => false, 'app.url' => 'https://x.gov.br', 'session.secure' => true,
+            'session.lifetime' => 30, 'mail.default' => 'smtp', 'database.connections.sqlite.driver' => 'mysql',
+            'sigiep.two_factor_required_roles' => ['administrador', 'coordenacao', 'psicologo', 'assistente_social']]);
+
+        $this->artisan('sigiep:verificar --strict')->expectsOutputToContain('Remetente de e-mail próprio')->assertSuccessful(); // aviso, não crítico
+    }
+
+    public function test_timezone_can_be_configured_per_deployment(): void
+    {
+        $this->assertSame('America/Sao_Paulo', config('app.timezone'));
+        $this->assertStringContainsString("env('APP_TIMEZONE'", file_get_contents(base_path('config/app.php')));
     }
 }

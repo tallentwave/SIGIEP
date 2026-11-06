@@ -45,6 +45,7 @@
     <nav>
         @unless (auth()->user()->isAdmin())
             <a href="{{ route('dashboard') }}">Painel</a>
+            <a href="{{ route('fila.index') }}">Lista de espera</a>
             <a href="{{ route('casos.index') }}">Casos</a>
             <a href="{{ route('casos.create') }}">Novo caso</a>
             <a href="{{ route('atendidos.index') }}">Atendidos</a>

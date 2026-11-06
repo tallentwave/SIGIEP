@@ -81,10 +81,12 @@ class MunicipalityController extends Controller
             // Violência sexual é de notificação imediata: nunca pode ter prazo maior que o das demais.
             'sinan_deadline_sexual_days' => ['required', 'integer', 'between:0,60', 'lte:sinan_deadline_default_days'],
             'queue_alert_days' => ['required', 'integer', 'between:1,60'],
+            'first_listening_days' => ['required', 'integer', 'between:1,60'],
         ], ['sinan_deadline_sexual_days.lte' => 'O prazo da violência sexual (notificação imediata) não pode ser maior que o das demais.'], [
             'sinan_deadline_default_days' => 'prazo das demais violências',
             'sinan_deadline_sexual_days' => 'prazo da violência sexual',
             'queue_alert_days' => 'dias na fila até o alerta',
+            'first_listening_days' => 'meta para a 1ª escuta',
         ]);
         $municipality->update($d);
 

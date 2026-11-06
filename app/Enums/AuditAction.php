@@ -30,6 +30,7 @@ enum AuditAction: string
     case IntegrationGenerated = 'integracao_gerada';
     case IntegrationConfirmed = 'integracao_confirmada';
     case IntegrationWaived = 'integracao_dispensada';
+    case Assigned = 'atribuiu_caso';
 
     public function label(): string
     {
@@ -60,6 +61,7 @@ enum AuditAction: string
             self::IntegrationGenerated => 'Arquivo/documento de integração gerado',
             self::IntegrationConfirmed => 'Integração confirmada',
             self::IntegrationWaived => 'Integração dispensada',
+            self::Assigned => 'Atribuiu caso',
         };
     }
 }

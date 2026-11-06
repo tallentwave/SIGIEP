@@ -17,6 +17,7 @@ use App\Http\Controllers\RetentionController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\TwoFactorController;
+use App\Http\Controllers\WaitingListController;
 use Illuminate\Support\Facades\Route;
 
 // Canal público de denúncia (sem login).
@@ -61,6 +62,9 @@ Route::middleware(['auth', 'two-factor', 'password.changed'])->group(function ()
     Route::put('casos/{case}/gestao', [CaseController::class, 'manage'])->name('casos.manage');
     Route::post('casos/{case}/assumir', [CaseController::class, 'claim'])->name('casos.claim');
     Route::post('casos/{case}/fluxo', [CaseController::class, 'applyFlow'])->name('casos.fluxo');
+
+    Route::get('fila', [WaitingListController::class, 'index'])->name('fila.index');
+    Route::post('fila/atribuir', [WaitingListController::class, 'assign'])->name('fila.assign');
 
     Route::get('atendidos', [ChildController::class, 'index'])->name('atendidos.index');
     Route::get('atendidos/{child}', [ChildController::class, 'show'])->name('atendidos.show');

@@ -29,7 +29,8 @@ class VerificarProducao extends Command
             $critical(! array_diff(array_map(fn (Role $r) => $r->value, [Role::Administrador, Role::Coordenacao, Role::Psicologo, Role::AssistenteSocial]),
                 config('sigiep.two_factor_required_roles', [])), '2FA obrigatório para perfis sensíveis', 'Remova SIGIEP_2FA_REQUIRED do ambiente (só para desenvolvimento).'),
             $critical(config('database.connections.'.config('database.default').'.driver') !== 'sqlite', 'Banco de dados de produção (não SQLite)', 'Use MySQL ou PostgreSQL com backup e disco criptografado.'),
-            $warn(filled(env('TRUSTED_PROXIES')) || ! request()->hasHeader('X-Forwarded-For'), 'Proxies confiáveis (TRUSTED_PROXIES)', 'Atrás de balanceador, defina TRUSTED_PROXIES; senão a auditoria grava o IP do proxy e o limite de login é compartilhado.'),
+            $warn(! str_ends_with((string) config('mail.from.address'), '@example.com'), 'Remetente de e-mail próprio (MAIL_FROM_ADDRESS)', 'Defina MAIL_FROM_ADDRESS com um endereço do órgão; o padrão (hello@example.com) é recusado por muitos provedores.'),
+            $warn(filled(config('trustedproxy.proxies')) || ! request()->hasHeader('X-Forwarded-For'), 'Proxies confiáveis (TRUSTED_PROXIES)', 'Atrás de balanceador, defina TRUSTED_PROXIES; senão a auditoria grava o IP do proxy e o limite de login é compartilhado.'),
             $warn((int) config('sigiep.audit_retention_years') > 0, 'Prazo de expurgo da auditoria definido', 'Defina SIGIEP_AUDIT_RETENTION_YEARS (padrão 5).'),
             $warn(config('app.env') === 'production', 'APP_ENV=production', 'Defina APP_ENV=production.'),
         ];

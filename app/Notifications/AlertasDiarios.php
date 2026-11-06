@@ -30,6 +30,9 @@ class AlertasDiarios extends Notification
             $m->line('Casos aguardando responsável há mais tempo que o limite: '.implode(', ', $this->dados['fila']));
         }
 
+        if ($this->dados['espera'] ?? []) {
+            $m->line('Meta da 1ª escuta vencida (sem escuta marcada): '.implode(', ', $this->dados['espera']));
+        }
         if ($this->dados['sinan'] ?? []) {
             $m->line('Notificação ao SINAN com prazo vencido: '.implode(', ', $this->dados['sinan']));
         }

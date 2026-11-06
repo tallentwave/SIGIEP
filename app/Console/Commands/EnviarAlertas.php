@@ -43,7 +43,11 @@ class EnviarAlertas extends Command
                 ->whereDoesntHave('dispatches', fn ($q) => $q->where('system', 'sinan')->whereIn('status', ['concluido', 'dispensado']))
                 ->with('municipality')->get()->filter(fn ($c) => SinanExporter::deadline($c)->isPast());
 
-            if ($atrasados->isEmpty() && $sessions->isEmpty() && $fila->isEmpty() && $sinan->isEmpty()) {
+            $espera = (clone $cases)->whereNull('anonymized_at')->where('status', '!=', CaseStatus::Encerrado)
+                ->whereDoesntHave('sessions', fn ($q) => $q->whereIn('status', [SessionStatus::Agendada->value, SessionStatus::Realizada->value]))
+                ->whereDate('received_at', '<', now()->subDays($m->first_listening_days)->toDateString())->get();
+
+            if ($atrasados->isEmpty() && $sessions->isEmpty() && $fila->isEmpty() && $sinan->isEmpty() && $espera->isEmpty()) {
                 continue;
             }
 
@@ -52,6 +56,7 @@ class EnviarAlertas extends Command
                 'escutas' => $sessions->pluck('case.protocol')->unique()->values()->all(),
                 'fila' => $fila->pluck('protocol')->all(),
                 'sinan' => $sinan->pluck('protocol')->all(),
+                'espera' => $espera->pluck('protocol')->all(),
             ];
 
             // Coordenação recebe tudo; profissionais, só o que é dos seus casos.

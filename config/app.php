@@ -65,7 +65,8 @@ return [
     |
     */
 
-    'timezone' => 'America/Sao_Paulo',
+    // Horário das escutas e prazos. Municípios fora do horário de Brasília (AM, AC, MT, MS…) definem APP_TIMEZONE.
+    'timezone' => env('APP_TIMEZONE', 'America/Sao_Paulo'),
 
     /*
     |--------------------------------------------------------------------------

@@ -11,8 +11,10 @@
             <span class="muted">0 = no mesmo dia</span></div>
         <div><label>Demais violências *</label><input type="number" name="sinan_deadline_default_days" min="0" max="60" value="{{ old('sinan_deadline_default_days', $municipality->sinan_deadline_default_days) }}" required></div>
     </div>
-    <h2 style="margin-top:16px">Fila de casos</h2>
+    <h2 style="margin-top:16px">Lista de espera</h2>
     <div class="grid">
+        <div><label>Meta: dias até a 1ª escuta marcada ou realizada *</label><input type="number" name="first_listening_days" min="1" max="60" value="{{ old('first_listening_days', $municipality->first_listening_days) }}" required>
+            <span class="muted">Casos além da meta aparecem como atrasados na lista de espera e nos alertas.</span></div>
         <div><label>Dias sem responsável até alertar a coordenação *</label><input type="number" name="queue_alert_days" min="1" max="60" value="{{ old('queue_alert_days', $municipality->queue_alert_days) }}" required></div>
     </div>
     <p style="margin-top:16px"><button>Salvar prazos</button></p>

@@ -17,6 +17,7 @@ vítimas ou testemunhas de violência (Lei 13.431/2017). Laravel 13 · PHP 8.3 �
 | **Estatísticas e PDF** | Indicadores agregados por período/município (tipo, faixa etária, situação, mês, órgão, tempo até 1ª escuta, retorno de encaminhamentos), PDF estatístico e PDF individual do caso |
 | **Alertas** | `php artisan sigiep:alertas` (agendado 07:30): encaminhamentos atrasados, escutas das próximas 24h, casos parados na fila. Só protocolos por e-mail |
 | **Segurança da conta** | Recuperação de senha por e-mail (link de 60 min, uso único, resposta idêntica exista o e-mail ou não, derruba sessões abertas) e **2FA por aplicativo autenticador** (TOTP) com códigos de recuperação. Obrigatório para Administrador, Coordenação, Psicólogo e Assistente Social; opcional para Recepção |
+| **Lista de espera** | Casos abertos sem escuta marcada, em ordem explicável (urgente → violência sexual → meta vencida → mais antigo), carga de cada profissional, atribuição em lote com aviso por e-mail (só protocolos) e meta da 1ª escuta por município |
 | **Prazos por município** | Tela *Prazos*: dias para notificar ao SINAN (violência sexual × demais) e dias na fila até alertar a coordenação. Editável pelo administrador e pela coordenação do próprio município |
 | **Auditoria** | Login/falhas, leitura de caso e relato, alterações (só nomes dos campos), exportações, acessos negados, denúncias públicas |
 
@@ -56,6 +57,8 @@ Nenhum perfil enxerga outro município.
 - A auditoria guarda só os *nomes* dos campos alterados e é imutável pela aplicação; exclusões são lógicas.
 - E-mails de alerta nunca levam nome, relato ou ficha.
 
+**Implantando em produção?** Siga o [guia de implantação](docs/implantacao.md): requisitos, instalação passo a passo, configuração inicial, roteiro de teste, treinamento, rotina, backup, atualização e resposta a incidentes.
+
 ## Rodando
 
 ```bash
@@ -79,7 +82,7 @@ Rode `php artisan sigiep:verificar` (e `--strict` na esteira de deploy: sai com 
 - **E-mail real** (`MAIL_*`): com `MAIL_MAILER=log` os links de redefinição de senha e os alertas vão para o arquivo de log.
 - **Atrás de balanceador/proxy:** defina `TRUSTED_PROXIES`; senão a auditoria grava o IP do proxy e o limite de login é compartilhado.
 - Agendador do servidor: `* * * * * php artisan schedule:run`.
-- **Não** rodar o seeder em produção; crie o primeiro administrador via `php artisan tinker`.
+- **Não** rodar o seeder em produção; crie o primeiro administrador com `php artisan sigiep:criar-admin email --nome="…"` (senha digitada oculta).
 - 2FA: o padrão já é seguro; **não** defina `SIGIEP_2FA_REQUIRED` em produção. Quem perder o celular e os códigos pede ao administrador (Usuários → Editar → Redefinir 2FA).
 - Por *Municípios*: código IBGE, unidade notificadora do SINAN, fluxo e prazos. Teste `sigiep:retencao --dry-run` antes de ligar `SIGIEP_RETENTION_AUTO`.
 
